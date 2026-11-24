@@ -1,0 +1,52 @@
+[package]
+name = "cinny_core"
+version = "0.3.0"
+edition = "2021"
+license = "MIT"
+description = "Rust Matrix core for Cinny Native Android powered by matrix-sdk 0.16, matrix-sdk-ui, and UniFFI"
+
+[lib]
+name = "cinny_core"
+crate-type = ["cdylib", "staticlib", "lib"]
+
+[[bin]]
+name = "uniffi-bindgen"
+path = "src/bin/uniffi-bindgen.rs"
+
+[dependencies]
+# Official Matrix Rust SDK with bundled SQLite, E2EE (Olm/Megolm + 4S), and rustls
+matrix-sdk = { version = "0.16", default-features = false, features = [
+  "e2e-encryption",
+  "bundled-sqlite",
+  "rustls-tls",
+  "markdown",
+] }
+matrix-sdk-ui = { version = "0.16" }
+
+# Async runtime & concurrency
+tokio = { version = "1.43", features = ["rt-multi-thread", "macros", "sync", "time"] }
+futures-util = "0.3"
+async-trait = "0.1"
+
+# UniFFI Kotlin/Android bindings (proc-macro + library mode)
+uniffi = { version = "0.29", features = ["tokio", "cli"] }
+
+# Serialization, URL, MIME & Error handling
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+url = "2.5"
+mime = "0.3"
+thiserror = "2.0"
+
+# Android Logcat tracing integration
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+[target.'cfg(target_os = "android")'.dependencies]
+tracing-android = "0.2"
+
+[profile.release]
+# Keep dynamic export symbols & UniFFI metadata intact; strip only debug info via llvm-strip in build script
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = "none"

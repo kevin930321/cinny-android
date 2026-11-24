@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Cinny</string>
+    <string name="login_subtitle">以 Rust matrix-sdk 端對端加密登入您的 Matrix 伺服器</string>
+    <string name="login_cta">登入 Matrix</string>
+    <string name="login_sso_cta">透過 SSO / OIDC 瀏覽器登入</string>
+    <string name="homeserver_label">Homeserver 網址</string>
+    <string name="username_label">Matrix 帳號</string>
+    <string name="password_label">密碼</string>
+    <string name="search_rooms_hint">搜尋房間或私訊</string>
+    <string name="message_hint">傳送訊息至 #%1$s</string>
+    <string name="sync_live">已連線</string>
+    <string name="sync_syncing">同步中…</string>
+    <string name="sync_offline">離線</string>
+    <string name="sync_token_invalid">登入憑證已失效，請重新登入。</string>
+    <string name="notification_channel_messages">Matrix 訊息通知</string>
+    <string name="notification_channel_messages_desc">端對端加密房間與私訊即時解密通知</string>
+</resources>

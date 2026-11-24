@@ -1,0 +1,16 @@
+#!/bin/sh
+# Minimal Gradle wrapper bootstrap script; run `gradle wrapper` if gradle-wrapper.jar is not yet fetched.
+APP_HOME="$(cd "$(dirname "$0")" && pwd)"
+WRAPPER_JAR="$APP_HOME/gradle/wrapper/gradle-wrapper.jar"
+
+if [ ! -f "$WRAPPER_JAR" ]; then
+  if command -v gradle >/dev/null 2>&1; then
+    echo "Bootstrapping Gradle wrapper via system gradle..."
+    gradle wrapper --gradle-version 8.9
+  else
+    echo "Error: gradle-wrapper.jar not found and system 'gradle' is not installed."
+    exit 1
+  fi
+fi
+
+exec java -Xmx1024m -jar "$WRAPPER_JAR" "$@"

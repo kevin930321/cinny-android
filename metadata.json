@@ -1,0 +1,6 @@
+{
+  "name": "Cinny Rust Android Studio",
+  "description": "使用 Rust (matrix-sdk + UniFFI) 與 Jetpack Compose 打造的 Cinny 原生安卓 Matrix 聊天應用程式與互動模擬器。",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
