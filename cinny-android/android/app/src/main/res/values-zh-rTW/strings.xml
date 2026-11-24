@@ -2,6 +2,7 @@
 <resources>
     <string name="app_name">Cinny</string>
     <string name="login_subtitle">以 Rust matrix-sdk 端對端加密登入您的 Matrix 伺服器</string>
+    <string name="restoring_session">正在還原加密的 Matrix 工作階段…</string>
     <string name="login_cta">登入 Matrix</string>
     <string name="login_sso_cta">透過 SSO / OIDC 瀏覽器登入</string>
     <string name="homeserver_label">Homeserver 網址</string>
@@ -15,4 +16,96 @@
     <string name="sync_token_invalid">登入憑證已失效，請重新登入。</string>
     <string name="notification_channel_messages">Matrix 訊息通知</string>
     <string name="notification_channel_messages_desc">端對端加密房間與私訊即時解密通知</string>
+
+    <string name="space_home">主頁</string>
+    <string name="space_direct_messages">私訊 Direct Messages</string>
+    <string name="category_rooms">聊天室</string>
+    <string name="verify_warning_desc">尚有未驗證裝置</string>
+
+    <string name="action_back">返回</string>
+    <string name="action_close">關閉</string>
+    <string name="action_cancel">取消</string>
+    <string name="action_save">儲存</string>
+    <string name="action_send">傳送</string>
+    <string name="action_search">搜尋</string>
+    <string name="action_create">建立</string>
+    <string name="action_join">加入</string>
+    <string name="action_decline">婉拒</string>
+    <string name="action_open">開啟</string>
+    <string name="action_invite">邀請</string>
+    <string name="action_reply">回覆</string>
+    <string name="action_open_thread">開啟討論串</string>
+    <string name="action_copy_text">複製訊息</string>
+    <string name="action_view_source">檢視事件原始碼</string>
+    <string name="action_edit">編輯</string>
+    <string name="action_delete">刪除</string>
+    <string name="action_leave_room">離開聊天室</string>
+    <string name="action_sign_out">登出</string>
+    <string name="action_start_chat">開始對話</string>
+    <string name="sign_out_confirm_desc">確定要登出此 Matrix 帳號嗎？本機端加密金鑰將會被清除。</string>
+
+    <string name="create_room_title">建立聊天室</string>
+    <string name="create_space_title">建立 Space</string>
+    <string name="start_dm_title">發起私訊</string>
+    <string name="join_room_title">加入房間或別名</string>
+    <string name="tab_room">房間</string>
+    <string name="tab_space">Space</string>
+    <string name="tab_dm">私訊</string>
+    <string name="tab_join">加入</string>
+    <string name="room_name_label">聊天室名稱</string>
+    <string name="space_name_label">Space 名稱</string>
+    <string name="topic_optional_label">主題說明（選填）</string>
+    <string name="enable_e2ee_label">啟用 Megolm 端對端加密</string>
+    <string name="public_space_label">公開 Space</string>
+
+    <string name="explore_title">探索公開頻道</string>
+    <string name="explore_directory_heading">公開聊天室目錄</string>
+    <string name="explore_search_hint">搜尋公開聊天室…</string>
+    <string name="explore_home_server">目前伺服器</string>
+    <string name="explore_custom_server_label">伺服器主機名稱</string>
+    <string name="explore_empty">找不到符合條件的公開聊天室。</string>
+
+    <string name="inbox_title">收件匣</string>
+    <string name="inbox_notifications_tab">未讀通知</string>
+    <string name="inbox_invites_tab">房間邀請</string>
+    <string name="inbox_notifications_empty">太棒了！目前沒有未讀訊息。</string>
+    <string name="inbox_invites_empty">目前沒有待處理的聊天室或私訊邀請。</string>
+
+    <string name="settings_title">設定</string>
+    <string name="settings_general">一般設定</string>
+    <string name="settings_account">帳號設定</string>
+    <string name="settings_notifications">通知與推播</string>
+    <string name="settings_devices">裝置與端對端安全</string>
+    <string name="settings_developer">開發者工具</string>
+    <string name="settings_about">關於 Cinny</string>
+    <string name="settings_appearance">外觀主題</string>
+    <string name="settings_theme_label">主題配色</string>
+    <string name="settings_messages_section">訊息顯示</string>
+    <string name="settings_message_layout">訊息排版樣式</string>
+    <string name="settings_message_spacing">訊息間距</string>
+    <string name="settings_bubble_own_right">自己的訊息氣泡靠右對齊</string>
+    <string name="settings_bubble_own_right_desc">啟用氣泡模式時將自己傳送的訊息顯示於右側</string>
+    <string name="settings_auto_load_media">自動載入加密圖片</string>
+    <string name="settings_auto_load_media_desc">於時間軸自動下載並解密圖片預覽</string>
+    <string name="settings_room_list_section">聊天室列表</string>
+    <string name="settings_show_room_avatars">顯示聊天室頭像</string>
+    <string name="settings_sort_by_activity">依最近活躍時間排序</string>
+    <string name="settings_sort_by_activity_desc">優先顯示有提及或最新訊息的聊天室</string>
+    <string name="settings_hide_activity">隱藏正在輸入狀態</string>
+    <string name="settings_hide_activity_desc">不向其他成員傳送輸入指示</string>
+    <string name="settings_datetime_editor_section">日期時間與編輯器</string>
+    <string name="settings_24h_clock">24 小時制時間</string>
+    <string name="settings_date_format">日期格式</string>
+    <string name="settings_markdown_toolbar">Markdown 快捷工具列</string>
+    <string name="settings_markdown_toolbar_desc">在輸入框上方顯示常用格式按鈕</string>
+    <string name="settings_enter_newline">Enter 鍵換行</string>
+    <string name="settings_profile_section">個人檔案</string>
+    <string name="settings_display_name_label">顯示名稱</string>
+    <string name="settings_open_security_center">開啟 E2EE 與 4S 金鑰安全中心</string>
+    <string name="settings_enable_devtools">啟用開發者工具</string>
+    <string name="settings_enable_devtools_desc">允許檢視事件原始 JSON 與房間 ID 資訊</string>
+
+    <string name="room_settings_title">聊天室設定</string>
+    <string name="room_settings_members">成員列表</string>
+    <string name="room_settings_update_topic">更新主題</string>
 </resources>

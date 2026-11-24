@@ -2,12 +2,18 @@ use std::collections::{HashMap, HashSet};
 
 use matrix_sdk::{
     deserialized_responses::RawAnySyncOrStrippedState,
+    notification_settings::RoomNotificationMode,
     room::Room,
     ruma::{
         api::client::{
-            room::{create_room::v3::Request as CreateRoomRequest, Visibility},
+            directory::get_public_rooms_filtered::v3::Request as PublicRoomsRequest,
+            room::{
+                create_room::v3::{CreationContent, Request as CreateRoomRequest},
+                Visibility,
+            },
             space::get_hierarchy::v1::Request as SpaceHierarchyRequest,
         },
+        directory::Filter,
         events::{
             room::{
                 encryption::RoomEncryptionEventContent,
@@ -16,7 +22,8 @@ use matrix_sdk::{
             },
             InitialStateEvent, StateEventType,
         },
-        OwnedRoomId, OwnedUserId, RoomId, RoomOrAliasId,
+        serde::Raw,
+        OwnedRoomId, OwnedUserId, RoomId, RoomOrAliasId, ServerName,
     },
     Client, RoomMemberships, RoomState,
 };
@@ -24,7 +31,10 @@ use matrix_sdk_ui::room_list_service::RoomListItem;
 
 use crate::{
     error::CinnyError,
-    models::{RoomCategory, RoomMemberSummary, RoomSummary, SpaceHierarchyEntry, SpaceNode},
+    models::{
+        PublicRoomEntry, RoomCategory, RoomMemberSummary, RoomNotificationLevel, RoomSummary,
+        SpaceHierarchyEntry, SpaceNode,
+    },
 };
 
 /// Builds Cinny's Space-first hierarchy from RoomListService entries (or fallback rooms),
@@ -264,6 +274,191 @@ pub async fn create_room(
     Ok(room.room_id().to_string())
 }
 
+pub async fn create_space(
+    client: &Client,
+    name: String,
+    topic: Option<String>,
+    is_public: bool,
+) -> Result<String, CinnyError> {
+    let trimmed = name.trim();
+    if trimmed.is_empty() {
+        return Err(CinnyError::InvalidInput {
+            detail: "Space name cannot be empty".to_string(),
+        });
+    }
+    let creation_content: Raw<CreationContent> =
+        serde_json::from_str(r#"{"type":"m.space"}"#).map_err(|e| CinnyError::Internal {
+            detail: format!("Failed to construct Space creation content: {e}"),
+        })?;
+
+    let mut req = CreateRoomRequest::new();
+    req.name = Some(trimmed.to_string());
+    req.topic = topic.filter(|t| !t.trim().is_empty());
+    req.visibility = if is_public {
+        Visibility::Public
+    } else {
+        Visibility::Private
+    };
+    req.creation_content = Some(creation_content);
+
+    let room = client
+        .create_room(req)
+        .await
+        .map_err(|e| CinnyError::Network {
+            detail: format!("Create Space failed: {e}"),
+        })?;
+    Ok(room.room_id().to_string())
+}
+
+pub async fn search_public_rooms(
+    client: &Client,
+    server: Option<String>,
+    search_term: Option<String>,
+    limit: u32,
+) -> Result<Vec<PublicRoomEntry>, CinnyError> {
+    let mut req = PublicRoomsRequest::new();
+    if let Some(raw_server) = server.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+        let parsed_server =
+            ServerName::parse(raw_server).map_err(|e| CinnyError::InvalidInput {
+                detail: format!("Invalid server name '{raw_server}': {e}"),
+            })?;
+        req.server = Some(parsed_server);
+    }
+    req.limit = Some(limit.clamp(1, 100).into());
+    if let Some(term) = search_term
+        .as_deref()
+        .map(str::trim)
+        .filter(|t| !t.is_empty())
+    {
+        let mut filter = Filter::default();
+        filter.generic_search_term = Some(term.to_string());
+        req.filter = filter;
+    }
+
+    let resp = client
+        .public_rooms_filtered(req)
+        .await
+        .map_err(|e| CinnyError::Network {
+            detail: format!("Public rooms search failed: {e}"),
+        })?;
+
+    let entries = resp
+        .chunk
+        .into_iter()
+        .map(|chunk| {
+            let room_id_str = chunk.room_id.to_string();
+            let is_joined = client
+                .get_room(&chunk.room_id)
+                .map(|r| r.state() == RoomState::Joined)
+                .unwrap_or(false);
+            let display_name = chunk
+                .name
+                .or_else(|| chunk.canonical_alias.as_ref().map(|a| a.to_string()))
+                .unwrap_or_else(|| room_id_str.clone());
+            PublicRoomEntry {
+                room_id: room_id_str,
+                canonical_alias: chunk.canonical_alias.map(|a| a.to_string()),
+                name: display_name,
+                topic: chunk.topic,
+                avatar_mxc: chunk.avatar_url.map(|u| u.to_string()),
+                num_joined_members: u64::from(chunk.num_joined_members) as u32,
+                world_readable: chunk.world_readable,
+                guest_can_join: chunk.guest_can_join,
+                is_joined,
+            }
+        })
+        .collect();
+
+    Ok(entries)
+}
+
+pub async fn update_room_name(
+    client: &Client,
+    room_id: &str,
+    new_name: String,
+) -> Result<(), CinnyError> {
+    let parsed = parse_room_id(room_id)?;
+    let room = client
+        .get_room(&parsed)
+        .ok_or_else(|| CinnyError::RoomNotFound {
+            room_id: room_id.to_string(),
+        })?;
+    room.set_name(new_name)
+        .await
+        .map_err(|e| CinnyError::Network {
+            detail: format!("Failed to update room name: {e}"),
+        })?;
+    Ok(())
+}
+
+pub async fn update_room_topic(
+    client: &Client,
+    room_id: &str,
+    new_topic: String,
+) -> Result<(), CinnyError> {
+    let parsed = parse_room_id(room_id)?;
+    let room = client
+        .get_room(&parsed)
+        .ok_or_else(|| CinnyError::RoomNotFound {
+            room_id: room_id.to_string(),
+        })?;
+    room.set_room_topic(&new_topic)
+        .await
+        .map_err(|e| CinnyError::Network {
+            detail: format!("Failed to update room topic: {e}"),
+        })?;
+    Ok(())
+}
+
+pub async fn get_room_notification_level(
+    client: &Client,
+    room_id: &str,
+) -> Result<RoomNotificationLevel, CinnyError> {
+    let parsed = parse_room_id(room_id)?;
+    let settings = client.notification_settings().await;
+    let mode = settings
+        .get_user_defined_room_notification_mode(&parsed)
+        .await;
+    Ok(map_sdk_notification_mode(mode))
+}
+
+pub async fn set_room_notification_level(
+    client: &Client,
+    room_id: &str,
+    level: RoomNotificationLevel,
+) -> Result<(), CinnyError> {
+    let parsed = parse_room_id(room_id)?;
+    let settings = client.notification_settings().await;
+    let sdk_mode = map_cinny_notification_level(level);
+    settings
+        .set_room_notification_mode(&parsed, sdk_mode)
+        .await
+        .map_err(|e| CinnyError::Network {
+            detail: format!("Failed to update room notification level: {e}"),
+        })?;
+    Ok(())
+}
+
+pub fn map_sdk_notification_mode(mode: Option<RoomNotificationMode>) -> RoomNotificationLevel {
+    match mode {
+        Some(RoomNotificationMode::Mute) => RoomNotificationLevel::Mute,
+        Some(RoomNotificationMode::MentionsAndKeywordsOnly) => {
+            RoomNotificationLevel::MentionsAndKeywordsOnly
+        }
+        _ => RoomNotificationLevel::AllMessages,
+    }
+}
+
+pub fn map_cinny_notification_level(level: RoomNotificationLevel) -> RoomNotificationMode {
+    match level {
+        RoomNotificationLevel::AllMessages => RoomNotificationMode::AllMessages,
+        RoomNotificationLevel::MentionsAndKeywordsOnly => {
+            RoomNotificationMode::MentionsAndKeywordsOnly
+        }
+        RoomNotificationLevel::Mute => RoomNotificationMode::Mute,
+    }
+}
+
 pub async fn join_room_by_id_or_alias(
     client: &Client,
     room_id_or_alias: &str,
@@ -441,5 +636,25 @@ mod tests {
     fn parse_room_id_validates_matrix_format() {
         assert!(parse_room_id("!abc123:matrix.org").is_ok());
         assert!(parse_room_id("not-a-room-id").is_err());
+    }
+
+    #[test]
+    fn notification_mode_roundtrips_cleanly() {
+        assert_eq!(
+            map_sdk_notification_mode(None),
+            RoomNotificationLevel::AllMessages
+        );
+        assert_eq!(
+            map_sdk_notification_mode(Some(map_cinny_notification_level(
+                RoomNotificationLevel::MentionsAndKeywordsOnly
+            ))),
+            RoomNotificationLevel::MentionsAndKeywordsOnly
+        );
+        assert_eq!(
+            map_sdk_notification_mode(Some(map_cinny_notification_level(
+                RoomNotificationLevel::Mute
+            ))),
+            RoomNotificationLevel::Mute
+        );
     }
 }

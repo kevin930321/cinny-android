@@ -4,28 +4,25 @@ import android.content.Intent
 import android.graphics.BitmapFactory
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.Send
-import androidx.compose.material.icons.outlined.AddReaction
-import androidx.compose.material.icons.outlined.AttachFile
-import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Download
-import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.Forum
-import androidx.compose.material.icons.outlined.Group
-import androidx.compose.material.icons.outlined.Lock
-import androidx.compose.material.icons.outlined.Reply
-import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material.icons.outlined.VerifiedUser
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -33,9 +30,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.fromHtml
@@ -43,13 +42,18 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import `in`.cinny.android.R
+import `in`.cinny.android.data.CinnyMessageLayout
+import `in`.cinny.android.data.CinnyMessageSpacing
 import `in`.cinny.android.data.CinnyRepository
+import `in`.cinny.android.ui.CinnyViewModel
+import `in`.cinny.android.ui.theme.CinnyThemeColors
+import `in`.cinny.android.ui.theme.colorMXID
 import uniffi.cinny_core.MessageDeliveryStatus
 import uniffi.cinny_core.RoomSummary
 import uniffi.cinny_core.TimelineMessage
 import java.io.File
 
-private val QUICK_EMOJIS = listOf("👍", "❤️", "🦀", "🚀", "😂", "👀")
+private val QUICK_EMOJIS = listOf("👍", "❤️", "😂", "😮", "🎉", "🦀")
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,24 +61,30 @@ fun RoomTimelineScreen(
     room: RoomSummary,
     repository: CinnyRepository,
     onBack: () -> Unit,
+    onOpenRoomSettings: () -> Unit,
     onOpenVerify: () -> Unit
 ) {
+    val colors = CinnyThemeColors.current
     val context = LocalContext.current
+    val clipboard = LocalClipboardManager.current
+
+    val settings by repository.settings.collectAsState()
     val messages by repository.messages.collectAsState()
+    val typingUsers by repository.typingUsers.collectAsState()
     val searchResults by repository.roomSearchResults.collectAsState()
     val activeThreadRoot by repository.activeThreadRoot.collectAsState()
     val threadMessages by repository.threadMessages.collectAsState()
-    val roomMembers by repository.roomMembers.collectAsState()
     val downloadedMedia by repository.downloadedMediaPaths.collectAsState()
+    val mxcCachePaths by repository.mxcCachePaths.collectAsState()
 
     val listState = rememberLazyListState()
     var draft by remember { mutableStateOf("") }
     var replyingTo by remember { mutableStateOf<TimelineMessage?>(null) }
     var editingMessage by remember { mutableStateOf<TimelineMessage?>(null) }
-    var reactionTarget by remember { mutableStateOf<TimelineMessage?>(null) }
+    var actionSheetTarget by remember { mutableStateOf<TimelineMessage?>(null) }
+    var sourceViewTarget by remember { mutableStateOf<TimelineMessage?>(null) }
     var showSearchBar by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
-    var showMembersDialog by remember { mutableStateOf(false) }
 
     val mediaPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -102,26 +112,74 @@ fun RoomTimelineScreen(
     }
 
     val visibleMessages = if (showSearchBar && searchQuery.isNotBlank()) searchResults else messages
+    val spacingDp = when (settings.messageSpacing) {
+        CinnyMessageSpacing.Compact -> 2.dp
+        CinnyMessageSpacing.Normal -> 6.dp
+        CinnyMessageSpacing.Relaxed -> 12.dp
+    }
 
     Scaffold(
+        containerColor = colors.background,
         topBar = {
             TopAppBar(
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = colors.surface,
+                    titleContentColor = colors.onSurface
+                ),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = stringResource(R.string.action_back))
                     }
                 },
                 title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (room.isEncrypted) {
-                            Icon(
-                                Icons.Outlined.Lock,
-                                contentDescription = "Encrypted",
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(onClick = onOpenRoomSettings),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        MxcAvatar(
+                            name = room.name,
+                            seedId = room.roomId,
+                            mxcUrl = room.avatarMxc,
+                            mxcCachePaths = mxcCachePaths,
+                            onRequestMxc = { repository.requestMxcThumbnail(it, 96) },
+                            size = 34.dp,
+                            cornerRadius = if (room.isDirect) 17.dp else 10.dp
+                        )
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                if (room.isEncrypted) {
+                                    Icon(
+                                        Icons.Outlined.Lock,
+                                        contentDescription = "Encrypted",
+                                        tint = colors.success,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                }
+                                Text(
+                                    text = room.name,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            val topicText = room.topic
+                            if (!topicText.isNullOrBlank()) {
+                                Text(
+                                    text = topicText,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = colors.onSurfaceMuted,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
                         }
-                        Text(room.name, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 },
                 actions = {
@@ -129,16 +187,10 @@ fun RoomTimelineScreen(
                         showSearchBar = !showSearchBar
                         if (!showSearchBar) searchQuery = ""
                     }) {
-                        Icon(Icons.Outlined.Search, contentDescription = "Search Messages")
+                        Icon(Icons.Outlined.Search, contentDescription = stringResource(R.string.action_search))
                     }
-                    IconButton(onClick = {
-                        repository.loadRoomMembers(room.roomId)
-                        showMembersDialog = true
-                    }) {
-                        Icon(Icons.Outlined.Group, contentDescription = "Members & Room Settings")
-                    }
-                    IconButton(onClick = onOpenVerify) {
-                        Icon(Icons.Outlined.VerifiedUser, contentDescription = "Security Center")
+                    IconButton(onClick = onOpenRoomSettings) {
+                        Icon(Icons.Outlined.Tune, contentDescription = stringResource(R.string.room_settings_title))
                     }
                 }
             )
@@ -147,16 +199,32 @@ fun RoomTimelineScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.surface)
+                    .background(colors.surface)
                     .navigationBarsPadding()
                     .imePadding()
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
             ) {
+                HorizontalDivider(color = colors.surfaceLine)
+
+                if (typingUsers.isNotEmpty()) {
+                    val typingText = if (typingUsers.size == 1) {
+                        "${typingUsers[0]} is typing…"
+                    } else {
+                        "${typingUsers.take(2).joinToString(", ")} typing…"
+                    }
+                    Text(
+                        text = typingText,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = colors.primary,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                    )
+                }
+
                 if (replyingTo != null || editingMessage != null) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(bottom = 6.dp),
+                            .background(colors.primaryContainer.copy(alpha = 0.45f))
+                            .padding(horizontal = 14.dp, vertical = 6.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -166,31 +234,77 @@ fun RoomTimelineScreen(
                             } else {
                                 "Replying to ${replyingTo?.senderName}"
                             },
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary
+                            style = MaterialTheme.typography.labelMedium,
+                            color = colors.primary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
                         )
-                        TextButton(onClick = {
-                            replyingTo = null
-                            editingMessage = null
-                            draft = ""
-                        }) {
-                            Text("Cancel")
+                        IconButton(
+                            onClick = {
+                                replyingTo = null
+                                editingMessage = null
+                                draft = ""
+                            },
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.action_cancel), modifier = Modifier.size(16.dp))
                         }
                     }
                 }
+
+                if (settings.markdownEnabled) {
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                    ) {
+                        items(
+                            listOf(
+                                "B" to "**bold**",
+                                "I" to "*italic*",
+                                "</>" to "`code`",
+                                "Quote" to "> ",
+                                "Code Block" to "```\n\n```"
+                            )
+                        ) { (label, snippet) ->
+                            SuggestionChip(
+                                onClick = { draft = if (draft.isEmpty()) snippet else "$draft $snippet" },
+                                label = { Text(label, style = MaterialTheme.typography.labelSmall) }
+                            )
+                        }
+                    }
+                }
+
                 Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     IconButton(onClick = { mediaPicker.launch("*/*") }) {
-                        Icon(Icons.Outlined.AttachFile, contentDescription = "Attach encrypted image or file")
+                        Icon(
+                            Icons.Outlined.AddCircleOutline,
+                            contentDescription = "Attach encrypted file",
+                            tint = colors.onSurfaceMuted
+                        )
                     }
                     OutlinedTextField(
                         value = draft,
-                        onValueChange = { draft = it },
+                        onValueChange = { next ->
+                            val wasBlank = draft.isBlank()
+                            draft = next
+                            val nowBlank = next.isBlank()
+                            if (wasBlank && !nowBlank) {
+                                repository.sendTypingNotice(true)
+                            } else if (!wasBlank && nowBlank) {
+                                repository.sendTypingNotice(false)
+                            }
+                        },
                         placeholder = { Text(stringResource(R.string.message_hint, room.name)) },
+                        shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.weight(1f),
-                        maxLines = 4
+                        maxLines = 5
                     )
                     FilledIconButton(
                         onClick = {
@@ -208,9 +322,9 @@ fun RoomTimelineScreen(
                             }
                         },
                         enabled = draft.isNotBlank(),
-                        modifier = Modifier.size(48.dp)
+                        modifier = Modifier.size(46.dp)
                     ) {
-                        Icon(Icons.AutoMirrored.Outlined.Send, contentDescription = "Send")
+                        Icon(Icons.AutoMirrored.Outlined.Send, contentDescription = stringResource(R.string.action_send))
                     }
                 }
             }
@@ -228,11 +342,13 @@ fun RoomTimelineScreen(
                         searchQuery = it
                         repository.searchRoomMessages(it)
                     },
-                    placeholder = { Text("Search decrypted room messages…") },
+                    placeholder = { Text("Search decrypted messages…") },
+                    leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
                     singleLine = true,
+                    shape = RoundedCornerShape(10.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 14.dp, vertical = 6.dp)
+                        .padding(horizontal = 14.dp, vertical = 8.dp)
                 )
             }
 
@@ -240,74 +356,174 @@ fun RoomTimelineScreen(
                 state = listState,
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 14.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-                contentPadding = PaddingValues(vertical = 12.dp)
+                    .padding(horizontal = 10.dp),
+                verticalArrangement = Arrangement.spacedBy(spacingDp),
+                contentPadding = PaddingValues(vertical = 10.dp)
             ) {
-                items(visibleMessages, key = { it.eventId }) { msg ->
-                    TimelineRow(
+                itemsIndexed(visibleMessages, key = { _, m -> m.eventId }) { index, msg ->
+                    val prevMsg = if (index > 0) visibleMessages[index - 1] else null
+                    val showDateDivider = prevMsg == null ||
+                        !CinnyViewModel.isSameCalendarDay(prevMsg.timestampMs, msg.timestampMs)
+                    val groupedWithPrevious = !showDateDivider &&
+                        settings.messageLayout == CinnyMessageLayout.Modern &&
+                        CinnyViewModel.shouldGroupWithPrevious(prevMsg, msg)
+
+                    if (showDateDivider) {
+                        DateDividerRow(
+                            label = CinnyViewModel.formatDateDivider(msg.timestampMs, settings.dateFormat)
+                        )
+                    }
+
+                    val attach = msg.attachment
+                    if (settings.autoLoadMedia &&
+                        attach != null &&
+                        attach.mimeType.startsWith("image/") &&
+                        downloadedMedia[msg.eventId] == null
+                    ) {
+                        LaunchedEffect(msg.eventId) {
+                            repository.downloadMedia(msg.eventId, attach.mediaSourceJson, attach.filename)
+                        }
+                    }
+
+                    val onOpenAttachment: (uniffi.cinny_core.MediaAttachmentInfo) -> Unit = { media ->
+                        repository.downloadMedia(
+                            eventId = msg.eventId,
+                            mediaSourceJson = media.mediaSourceJson,
+                            filename = media.filename
+                        ) { localPath ->
+                            val file = File(localPath)
+                            val uri = FileProvider.getUriForFile(
+                                context,
+                                "${context.packageName}.fileprovider",
+                                file
+                            )
+                            val viewIntent = Intent(Intent.ACTION_VIEW).apply {
+                                setDataAndType(uri, media.mimeType)
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            runCatching { context.startActivity(viewIntent) }
+                        }
+                    }
+
+                    CinnyTimelineMessageItem(
                         message = msg,
+                        layout = settings.messageLayout,
+                        bubbleOwnRight = settings.bubbleOwnRight,
+                        groupedWithPrevious = groupedWithPrevious,
+                        timeLabel = CinnyViewModel.formatTimeLabel(msg.timestampMs, settings.use24HourClock),
+                        mxcCachePaths = mxcCachePaths,
                         cachedMediaPath = downloadedMedia[msg.eventId],
-                        onDownloadMedia = { attach ->
-                            repository.downloadMedia(
-                                eventId = msg.eventId,
-                                mediaSourceJson = attach.mediaSourceJson,
-                                filename = attach.filename
-                            ) { localPath ->
-                                val file = File(localPath)
-                                val uri = FileProvider.getUriForFile(
-                                    context,
-                                    "${context.packageName}.fileprovider",
-                                    file
-                                )
-                                val viewIntent = Intent(Intent.ACTION_VIEW).apply {
-                                    setDataAndType(uri, attach.mimeType)
-                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                }
-                                runCatching { context.startActivity(viewIntent) }
-                            }
-                        },
-                        onReply = {
-                            if (msg.canReply) {
-                                editingMessage = null
-                                replyingTo = msg
-                            }
-                        },
-                        onOpenThread = { repository.openThread(msg) },
-                        onOpenReactionPicker = { reactionTarget = msg },
+                        onRequestMxc = { repository.requestMxcThumbnail(it, 96) },
+                        onOpenAttachment = onOpenAttachment,
+                        onOpenMenu = { if (!msg.isRedacted) actionSheetTarget = msg },
                         onReact = { emoji -> repository.toggleReaction(msg.eventId, emoji) },
-                        onEdit = {
-                            replyingTo = null
-                            editingMessage = msg
-                            draft = msg.body
-                        },
-                        onRedact = { repository.redactMessage(msg.eventId) }
+                        onOpenThread = { repository.openThread(msg) },
+                        onUnlockKeys = onOpenVerify
                     )
                 }
             }
         }
 
-        if (reactionTarget != null) {
-            AlertDialog(
-                onDismissRequest = { reactionTarget = null },
-                title = { Text("Add reaction") },
-                text = {
+        // Cinny Message Action Bottom Sheet
+        val target = actionSheetTarget
+        if (target != null) {
+            ModalBottomSheet(
+                onDismissRequest = { actionSheetTarget = null },
+                containerColor = colors.surface
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp),
                         horizontalArrangement = Arrangement.SpaceEvenly
                     ) {
                         QUICK_EMOJIS.forEach { emoji ->
-                            TextButton(onClick = {
-                                repository.toggleReaction(reactionTarget!!.eventId, emoji)
-                                reactionTarget = null
-                            }) {
-                                Text(emoji, style = MaterialTheme.typography.headlineSmall)
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = colors.surfaceVariant,
+                                modifier = Modifier.clickable {
+                                    repository.toggleReaction(target.eventId, emoji)
+                                    actionSheetTarget = null
+                                }
+                            ) {
+                                Text(
+                                    text = emoji,
+                                    style = MaterialTheme.typography.headlineSmall,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                )
                             }
                         }
                     }
+
+                    HorizontalDivider(color = colors.surfaceLine)
+
+                    if (target.canReply) {
+                        CinnySheetAction(Icons.Outlined.Reply, stringResource(R.string.action_reply)) {
+                            editingMessage = null
+                            replyingTo = target
+                            actionSheetTarget = null
+                        }
+                    }
+                    CinnySheetAction(Icons.Outlined.Forum, stringResource(R.string.action_open_thread)) {
+                        repository.openThread(target)
+                        actionSheetTarget = null
+                    }
+                    CinnySheetAction(Icons.Outlined.ContentCopy, stringResource(R.string.action_copy_text)) {
+                        clipboard.setText(AnnotatedString(target.body))
+                        actionSheetTarget = null
+                    }
+                    if (settings.developerTools && !target.rawJson.isNullOrBlank()) {
+                        CinnySheetAction(Icons.Outlined.Code, stringResource(R.string.action_view_source)) {
+                            sourceViewTarget = target
+                            actionSheetTarget = null
+                        }
+                    }
+                    if (target.isOwn) {
+                        CinnySheetAction(Icons.Outlined.Edit, stringResource(R.string.action_edit)) {
+                            replyingTo = null
+                            editingMessage = target
+                            draft = target.body
+                            actionSheetTarget = null
+                        }
+                        CinnySheetAction(
+                            icon = Icons.Outlined.Delete,
+                            label = stringResource(R.string.action_delete),
+                            isDestructive = true
+                        ) {
+                            repository.redactMessage(target.eventId)
+                            actionSheetTarget = null
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+            }
+        }
+
+        val srcTarget = sourceViewTarget
+        if (srcTarget != null) {
+            AlertDialog(
+                onDismissRequest = { sourceViewTarget = null },
+                title = { Text("Event Source JSON", fontWeight = FontWeight.SemiBold) },
+                text = {
+                    Text(
+                        text = srcTarget.rawJson ?: "{}",
+                        fontFamily = FontFamily.Monospace,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier
+                            .heightIn(max = 320.dp)
+                            .verticalScroll(rememberScrollState())
+                    )
                 },
                 confirmButton = {
-                    TextButton(onClick = { reactionTarget = null }) { Text("Close") }
+                    TextButton(onClick = { sourceViewTarget = null }) {
+                        Text(stringResource(R.string.action_close))
+                    }
                 }
             )
         }
@@ -320,208 +536,477 @@ fun RoomTimelineScreen(
                 onDismiss = { repository.closeThread() }
             )
         }
+    }
+}
 
-        if (showMembersDialog) {
-            RoomInfoMembersDialog(
-                room = room,
-                members = roomMembers,
-                onInvite = { userId -> repository.inviteUser(room.roomId, userId) },
-                onLeave = {
-                    showMembersDialog = false
-                    repository.leaveRoom(room.roomId)
-                },
-                onDismiss = { showMembersDialog = false }
+@Composable
+private fun DateDividerRow(label: String) {
+    val colors = CinnyThemeColors.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        HorizontalDivider(modifier = Modifier.weight(1f), color = colors.surfaceLine)
+        Surface(
+            color = colors.surface,
+            shape = RoundedCornerShape(8.dp),
+            border = BorderStroke(1.dp, colors.surfaceLine)
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = colors.onSurfaceMuted,
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp)
+            )
+        }
+        HorizontalDivider(modifier = Modifier.weight(1f), color = colors.surfaceLine)
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun CinnyTimelineMessageItem(
+    message: TimelineMessage,
+    layout: CinnyMessageLayout,
+    bubbleOwnRight: Boolean,
+    groupedWithPrevious: Boolean,
+    timeLabel: String,
+    mxcCachePaths: Map<String, String>,
+    cachedMediaPath: String?,
+    onRequestMxc: (String?) -> Unit,
+    onOpenAttachment: (uniffi.cinny_core.MediaAttachmentInfo) -> Unit,
+    onOpenMenu: () -> Unit,
+    onReact: (String) -> Unit,
+    onOpenThread: () -> Unit,
+    onUnlockKeys: () -> Unit
+) {
+    val colors = CinnyThemeColors.current
+    val senderColor = colorMXID(message.senderId, colors.isDark)
+
+    if (layout == CinnyMessageLayout.Compact) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .combinedClickable(onClick = onOpenMenu, onLongClick = onOpenMenu)
+                .padding(horizontal = 6.dp, vertical = 3.dp)
+        ) {
+            message.replyTo?.let { reply ->
+                ReplyBanner(reply)
+            }
+            Row(
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    text = timeLabel,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = colors.onSurfaceMuted
+                )
+                Text(
+                    text = message.senderName,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = senderColor,
+                    maxLines = 1
+                )
+                Box(modifier = Modifier.weight(1f)) {
+                    MessageBodyContent(message, onUnlockKeys)
+                }
+            }
+            AttachmentAndReactions(
+                message = message,
+                cachedMediaPath = cachedMediaPath,
+                onOpenAttachment = onOpenAttachment,
+                onReact = onReact,
+                onOpenThread = onOpenThread
+            )
+        }
+        return
+    }
+
+    if (layout == CinnyMessageLayout.Bubble) {
+        val alignEnd = message.isOwn && bubbleOwnRight
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 2.dp),
+            horizontalAlignment = if (alignEnd) Alignment.End else Alignment.Start
+        ) {
+            Surface(
+                color = if (message.isOwn) colors.primaryContainer else colors.surface,
+                shape = RoundedCornerShape(14.dp),
+                border = if (message.isOwn) null else BorderStroke(1.dp, colors.surfaceLine),
+                modifier = Modifier
+                    .widthIn(max = 310.dp)
+                    .combinedClickable(onClick = onOpenMenu, onLongClick = onOpenMenu)
+            ) {
+                Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+                    message.replyTo?.let { reply ->
+                        ReplyBanner(reply)
+                    }
+                    if (!alignEnd) {
+                        Text(
+                            text = message.senderName,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = senderColor
+                        )
+                    }
+                    MessageBodyContent(message, onUnlockKeys)
+                    AttachmentAndReactions(
+                        message = message,
+                        cachedMediaPath = cachedMediaPath,
+                        onOpenAttachment = onOpenAttachment,
+                        onReact = onReact,
+                        onOpenThread = onOpenThread
+                    )
+                    Row(
+                        modifier = Modifier.align(Alignment.End),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (message.isEdited && !message.isRedacted) {
+                            Text("edited", style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceMuted)
+                        }
+                        Text(timeLabel, style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceMuted)
+                    }
+                }
+            }
+        }
+        return
+    }
+
+    // Default: Cinny Modern Layout
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .combinedClickable(onClick = onOpenMenu, onLongClick = onOpenMenu)
+            .padding(
+                start = 6.dp,
+                end = 6.dp,
+                top = if (groupedWithPrevious) 2.dp else 6.dp,
+                bottom = 2.dp
+            ),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.Top
+    ) {
+        if (groupedWithPrevious) {
+            Box(
+                modifier = Modifier.width(36.dp),
+                contentAlignment = Alignment.CenterEnd
+            ) {
+                Text(
+                    text = timeLabel,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = colors.onSurfaceMuted.copy(alpha = 0.7f)
+                )
+            }
+        } else {
+            MxcAvatar(
+                name = message.senderName,
+                seedId = message.senderId,
+                mxcUrl = message.senderAvatarMxc,
+                mxcCachePaths = mxcCachePaths,
+                onRequestMxc = onRequestMxc,
+                size = 36.dp,
+                cornerRadius = 18.dp
+            )
+        }
+
+        Column(modifier = Modifier.weight(1f)) {
+            message.replyTo?.let { reply ->
+                ReplyBanner(reply)
+            }
+
+            if (!groupedWithPrevious) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            text = message.senderName,
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = senderColor,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = timeLabel,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = colors.onSurfaceMuted
+                        )
+                        if (message.isEdited && !message.isRedacted) {
+                            Text(
+                                text = "(edited)",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = colors.onSurfaceMuted
+                            )
+                        }
+                        if (message.deliveryStatus is MessageDeliveryStatus.Sending) {
+                            Text("sending…", style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceMuted)
+                        } else if (message.deliveryStatus is MessageDeliveryStatus.Failed) {
+                            Text("failed", style = MaterialTheme.typography.labelSmall, color = colors.critical)
+                        }
+                    }
+
+                    if (!message.isRedacted) {
+                        IconButton(onClick = onOpenMenu, modifier = Modifier.size(26.dp)) {
+                            Icon(
+                                Icons.Outlined.MoreHoriz,
+                                contentDescription = "Message actions",
+                                tint = colors.onSurfaceMuted,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
+            MessageBodyContent(message, onUnlockKeys)
+
+            AttachmentAndReactions(
+                message = message,
+                cachedMediaPath = cachedMediaPath,
+                onOpenAttachment = onOpenAttachment,
+                onReact = onReact,
+                onOpenThread = onOpenThread
             )
         }
     }
 }
 
 @Composable
-private fun TimelineRow(
-    message: TimelineMessage,
-    cachedMediaPath: String?,
-    onDownloadMedia: (uniffi.cinny_core.MediaAttachmentInfo) -> Unit,
-    onReply: () -> Unit,
-    onOpenThread: () -> Unit,
-    onOpenReactionPicker: () -> Unit,
-    onReact: (String) -> Unit,
-    onEdit: () -> Unit,
-    onRedact: () -> Unit
-) {
-    Column(
+private fun ReplyBanner(reply: uniffi.cinny_core.ReplyPreview) {
+    val colors = CinnyThemeColors.current
+    Surface(
+        color = colors.surfaceVariant,
+        shape = RoundedCornerShape(6.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .clickable(enabled = message.canReply && !message.isRedacted, onClick = onReply)
-            .padding(vertical = 6.dp, horizontal = 8.dp)
+            .padding(bottom = 4.dp)
     ) {
-        message.replyTo?.let { reply ->
-            Surface(
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                shape = RoundedCornerShape(8.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 6.dp)
-            ) {
-                Text(
-                    text = "${reply.senderName}: ${reply.body}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                )
-            }
-        }
-
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = message.senderName,
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                if (message.isEdited && !message.isRedacted) {
-                    Text(
-                        text = "edited",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                if (message.deliveryStatus is MessageDeliveryStatus.Sending) {
-                    Text("sending…", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                } else if (message.deliveryStatus is MessageDeliveryStatus.Failed) {
-                    Text("failed", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
-                }
-            }
-
-            if (!message.isRedacted) {
-                Row {
-                    IconButton(onClick = onOpenReactionPicker, modifier = Modifier.size(30.dp)) {
-                        Icon(Icons.Outlined.AddReaction, contentDescription = "React", modifier = Modifier.size(16.dp))
-                    }
-                    if (message.canReply) {
-                        IconButton(onClick = onReply, modifier = Modifier.size(30.dp)) {
-                            Icon(Icons.Outlined.Reply, contentDescription = "Reply", modifier = Modifier.size(16.dp))
-                        }
-                    }
-                    IconButton(onClick = onOpenThread, modifier = Modifier.size(30.dp)) {
-                        Icon(Icons.Outlined.Forum, contentDescription = "Thread", modifier = Modifier.size(16.dp))
-                    }
-                    if (message.isOwn) {
-                        IconButton(onClick = onEdit, modifier = Modifier.size(30.dp)) {
-                            Icon(Icons.Outlined.Edit, contentDescription = "Edit", modifier = Modifier.size(16.dp))
-                        }
-                        IconButton(onClick = onRedact, modifier = Modifier.size(30.dp)) {
-                            Icon(Icons.Outlined.Delete, contentDescription = "Delete", modifier = Modifier.size(16.dp))
-                        }
-                    }
-                }
-            }
+            Box(
+                modifier = Modifier
+                    .width(2.dp)
+                    .height(14.dp)
+                    .background(colors.primary)
+            )
+            Text(
+                text = "${reply.senderName}: ${reply.body}",
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.onSurfaceMuted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
+    }
+}
 
-        Spacer(modifier = Modifier.height(2.dp))
-        val formattedHtml = message.formattedHtml
-        if (message.isRedacted) {
+@Composable
+private fun MessageBodyContent(
+    message: TimelineMessage,
+    onUnlockKeys: () -> Unit
+) {
+    val colors = CinnyThemeColors.current
+    val formattedHtml = message.formattedHtml
+    when {
+        message.isRedacted -> {
             Text(
                 text = message.body,
                 style = MaterialTheme.typography.bodyMedium,
                 fontStyle = FontStyle.Italic,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        } else if (!formattedHtml.isNullOrBlank()) {
-            Text(
-                text = AnnotatedString.fromHtml(formattedHtml),
-                style = MaterialTheme.typography.bodyMedium
-            )
-        } else {
-            Text(
-                text = message.body,
-                style = MaterialTheme.typography.bodyMedium
+                color = colors.onSurfaceMuted
             )
         }
-
-        message.attachment?.let { attach ->
-            Spacer(modifier = Modifier.height(6.dp))
+        message.isUnableToDecrypt -> {
             Surface(
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                shape = RoundedCornerShape(10.dp),
+                color = colors.warningContainer,
+                shape = RoundedCornerShape(8.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { onDownloadMedia(attach) }
+                    .padding(vertical = 2.dp)
+                    .clickable(onClick = onUnlockKeys)
             ) {
-                Column(modifier = Modifier.padding(10.dp)) {
-                    if (cachedMediaPath != null && attach.mimeType.startsWith("image/")) {
-                        val bmp = remember(cachedMediaPath) { BitmapFactory.decodeFile(cachedMediaPath) }
-                        if (bmp != null) {
-                            Image(
-                                bitmap = bmp.asImageBitmap(),
-                                contentDescription = attach.filename,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(160.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                            )
-                            Spacer(modifier = Modifier.height(6.dp))
-                        }
-                    }
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(attach.filename, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(
-                                text = "${if (attach.isEncrypted) "E2EE AES-CTR" else "Plain"} · ${attach.mimeType}",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Icon(Icons.Outlined.Download, contentDescription = "Decrypt & open attachment")
-                    }
+                Row(
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(Icons.Outlined.Key, contentDescription = null, tint = colors.warning, modifier = Modifier.size(16.dp))
+                    Text(
+                        text = message.body,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colors.warning,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(
+                        text = "Unlock",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = colors.warning
+                    )
                 }
             }
         }
+        !formattedHtml.isNullOrBlank() -> {
+            Text(
+                text = AnnotatedString.fromHtml(formattedHtml),
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.onSurface
+            )
+        }
+        else -> {
+            Text(
+                text = message.body,
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.onSurface
+            )
+        }
+    }
+}
 
-        if (message.reactions.isNotEmpty() || message.threadReplyCount > 0u) {
-            Spacer(modifier = Modifier.height(6.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                message.reactions.forEach { reaction ->
-                    val bg = if (reaction.reactedByMe) {
-                        MaterialTheme.colorScheme.primaryContainer
-                    } else {
-                        MaterialTheme.colorScheme.surfaceVariant
+@Composable
+private fun AttachmentAndReactions(
+    message: TimelineMessage,
+    cachedMediaPath: String?,
+    onOpenAttachment: (uniffi.cinny_core.MediaAttachmentInfo) -> Unit,
+    onReact: (String) -> Unit,
+    onOpenThread: () -> Unit
+) {
+    val colors = CinnyThemeColors.current
+    message.attachment?.let { attach ->
+        Spacer(modifier = Modifier.height(6.dp))
+        Surface(
+            color = colors.surfaceVariant,
+            shape = RoundedCornerShape(10.dp),
+            border = BorderStroke(1.dp, colors.surfaceLine),
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onOpenAttachment(attach) }
+        ) {
+            Column(modifier = Modifier.padding(10.dp)) {
+                if (cachedMediaPath != null && attach.mimeType.startsWith("image/")) {
+                    val bmp = remember(cachedMediaPath) { BitmapFactory.decodeFile(cachedMediaPath) }
+                    if (bmp != null) {
+                        Image(
+                            bitmap = bmp.asImageBitmap(),
+                            contentDescription = attach.filename,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(180.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
                     }
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            attach.filename,
+                            style = MaterialTheme.typography.labelLarge,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = "${if (attach.isEncrypted) "E2EE AES-CTR" else "Plain"} · ${attach.mimeType}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = colors.onSurfaceMuted
+                        )
+                    }
+                    Icon(Icons.Outlined.Download, contentDescription = "Open attachment", tint = colors.primary)
+                }
+            }
+        }
+    }
+
+    if (message.reactions.isNotEmpty() || message.threadReplyCount > 0u) {
+        Spacer(modifier = Modifier.height(6.dp))
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            message.reactions.forEach { reaction ->
+                Surface(
+                    color = if (reaction.reactedByMe) colors.primaryContainer else colors.surfaceVariant,
+                    shape = RoundedCornerShape(8.dp),
+                    border = BorderStroke(
+                        1.dp,
+                        if (reaction.reactedByMe) colors.primary else colors.surfaceLine
+                    ),
+                    modifier = Modifier.clickable { onReact(reaction.key) }
+                ) {
                     Text(
                         text = "${reaction.key} ${reaction.count}",
                         style = MaterialTheme.typography.labelMedium,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(bg)
-                            .clickable { onReact(reaction.key) }
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
-                }
-                if (message.threadReplyCount > 0u) {
-                    Text(
-                        text = "${message.threadReplyCount} replies in thread",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.clickable(onClick = onOpenThread)
+                        color = if (reaction.reactedByMe) colors.onPrimaryContainer else colors.onSurface,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                     )
                 }
             }
+            if (message.threadReplyCount > 0u) {
+                Text(
+                    text = "${message.threadReplyCount} replies in thread",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = colors.primary,
+                    modifier = Modifier.clickable(onClick = onOpenThread)
+                )
+            }
         }
+    }
+}
+
+@Composable
+private fun CinnySheetAction(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    isDestructive: Boolean = false,
+    onClick: () -> Unit
+) {
+    val colors = CinnyThemeColors.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = if (isDestructive) colors.critical else colors.onSurface
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium,
+            color = if (isDestructive) colors.critical else colors.onSurface
+        )
     }
 }
 
@@ -573,65 +1058,6 @@ private fun ThreadModalDialog(
                 enabled = threadDraft.isNotBlank()
             ) {
                 Text("Send Reply")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Close") }
-        }
-    )
-}
-
-@Composable
-private fun RoomInfoMembersDialog(
-    room: RoomSummary,
-    members: List<uniffi.cinny_core.RoomMemberSummary>,
-    onInvite: (String) -> Unit,
-    onLeave: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    var inviteUserId by remember { mutableStateOf("") }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(room.name, fontWeight = FontWeight.SemiBold) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (!room.topic.isNullOrBlank()) {
-                    Text(room.topic!!, style = MaterialTheme.typography.bodySmall)
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedTextField(
-                        value = inviteUserId,
-                        onValueChange = { inviteUserId = it },
-                        placeholder = { Text("@user:matrix.org") },
-                        singleLine = true,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Button(
-                        onClick = {
-                            if (inviteUserId.isNotBlank()) {
-                                onInvite(inviteUserId.trim())
-                                inviteUserId = ""
-                            }
-                        }
-                    ) { Text("Invite") }
-                }
-                Text("Active Members (${members.size})", style = MaterialTheme.typography.labelLarge)
-                LazyColumn(modifier = Modifier.heightIn(max = 180.dp)) {
-                    items(members, key = { it.userId }) { m ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(m.displayName, style = MaterialTheme.typography.bodySmall)
-                            Text("PL ${m.powerLevel}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onLeave, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
-                Text("Leave Room")
             }
         },
         dismissButton = {

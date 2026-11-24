@@ -125,6 +125,35 @@ pub enum MessageDeliveryStatus {
 }
 
 #[derive(Debug, Clone, uniffi::Record)]
+pub struct UserProfileInfo {
+    pub user_id: String,
+    pub display_name: Option<String>,
+    pub avatar_mxc: Option<String>,
+    pub homeserver_url: String,
+    pub device_id: Option<String>,
+}
+
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct PublicRoomEntry {
+    pub room_id: String,
+    pub canonical_alias: Option<String>,
+    pub name: String,
+    pub topic: Option<String>,
+    pub avatar_mxc: Option<String>,
+    pub num_joined_members: u32,
+    pub world_readable: bool,
+    pub guest_can_join: bool,
+    pub is_joined: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+pub enum RoomNotificationLevel {
+    AllMessages,
+    MentionsAndKeywordsOnly,
+    Mute,
+}
+
+#[derive(Debug, Clone, uniffi::Record)]
 pub struct TimelineMessage {
     pub event_id: String,
     pub sender_id: String,
@@ -145,6 +174,7 @@ pub struct TimelineMessage {
     pub attachment: Option<MediaAttachmentInfo>,
     pub reactions: Vec<ReactionBadge>,
     pub delivery_status: MessageDeliveryStatus,
+    pub raw_json: Option<String>,
 }
 
 #[derive(Debug, Clone, uniffi::Record)]

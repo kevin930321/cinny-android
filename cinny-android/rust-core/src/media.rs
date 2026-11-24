@@ -2,11 +2,14 @@ use std::path::{Path, PathBuf};
 
 use matrix_sdk::{
     attachment::AttachmentConfig,
-    media::{MediaFormat, MediaRequestParameters},
+    media::{MediaFormat, MediaRequestParameters, MediaThumbnailSettings},
     room::Room,
-    ruma::events::room::{
-        message::{FileMessageEventContent, ImageMessageEventContent, MessageType},
-        MediaSource,
+    ruma::{
+        events::room::{
+            message::{FileMessageEventContent, ImageMessageEventContent, MessageType},
+            MediaSource,
+        },
+        OwnedMxcUri,
     },
     Client,
 };
@@ -73,6 +76,66 @@ pub async fn download_media_to_cache(
 
     std::fs::write(&target_path, &bytes).map_err(|e| CinnyError::Storage {
         detail: format!("Failed to write cached media file: {e}"),
+    })?;
+
+    Ok(target_path.to_string_lossy().to_string())
+}
+
+pub fn validate_mxc_uri(raw: &str) -> Result<String, CinnyError> {
+    let trimmed = raw.trim();
+    if !trimmed.starts_with("mxc://") {
+        return Err(CinnyError::InvalidInput {
+            detail: format!("Not an mxc:// URI: {trimmed}"),
+        });
+    }
+    let rest = &trimmed[6..];
+    let Some((server, media_id)) = rest.split_once('/') else {
+        return Err(CinnyError::InvalidInput {
+            detail: format!("Missing media ID in mxc:// URI: {trimmed}"),
+        });
+    };
+    if server.is_empty() || media_id.is_empty() || media_id.contains("..") {
+        return Err(CinnyError::InvalidInput {
+            detail: format!("Malformed mxc:// URI: {trimmed}"),
+        });
+    }
+    Ok(trimmed.to_string())
+}
+
+/// Downloads an authenticated Matrix avatar or thumbnail to `<cache_dir>/avatar_cache/`.
+pub async fn download_mxc_thumbnail(
+    client: &Client,
+    mxc_url: &str,
+    size: u32,
+    cache_dir: &str,
+) -> Result<String, CinnyError> {
+    let clean_mxc = validate_mxc_uri(mxc_url)?;
+    let clamped = size.clamp(32, 512);
+    let avatar_dir = PathBuf::from(cache_dir).join("avatar_cache");
+    std::fs::create_dir_all(&avatar_dir).map_err(|e| CinnyError::Storage {
+        detail: format!("Failed to create avatar cache directory: {e}"),
+    })?;
+
+    let cache_key = fnv1a_hex(format!("{clean_mxc}:{clamped}").as_bytes());
+    let target_path = avatar_dir.join(format!("{cache_key}.bin"));
+    if target_path.exists() {
+        return Ok(target_path.to_string_lossy().to_string());
+    }
+
+    let request = MediaRequestParameters {
+        source: MediaSource::Plain(OwnedMxcUri::from(clean_mxc)),
+        format: MediaFormat::Thumbnail(MediaThumbnailSettings::new(clamped.into(), clamped.into())),
+    };
+    let bytes = client
+        .media()
+        .get_media_content(&request, true)
+        .await
+        .map_err(|e| CinnyError::Network {
+            detail: format!("Failed to fetch thumbnail: {e}"),
+        })?;
+
+    std::fs::write(&target_path, &bytes).map_err(|e| CinnyError::Storage {
+        detail: format!("Failed to write cached thumbnail: {e}"),
     })?;
 
     Ok(target_path.to_string_lossy().to_string())
@@ -168,5 +231,16 @@ mod tests {
         assert_eq!(sanitize_cache_filename("../../etc/passwd"), "passwd");
         assert_eq!(sanitize_cache_filename("photo 2026!.png"), "photo_2026_.png");
         assert_eq!(sanitize_cache_filename(""), "attachment.bin");
+    }
+
+    #[test]
+    fn validate_mxc_uri_checks_matrix_media_format() {
+        assert_eq!(
+            validate_mxc_uri(" mxc://matrix.org/AbCdEf123 ").unwrap(),
+            "mxc://matrix.org/AbCdEf123"
+        );
+        assert!(validate_mxc_uri("https://matrix.org/file.png").is_err());
+        assert!(validate_mxc_uri("mxc://matrix.org/").is_err());
+        assert!(validate_mxc_uri("mxc://matrix.org/../secret").is_err());
     }
 }

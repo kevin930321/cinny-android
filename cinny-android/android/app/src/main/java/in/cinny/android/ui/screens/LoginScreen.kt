@@ -1,8 +1,13 @@
 package `in`.cinny.android.ui.screens
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.OpenInBrowser
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -15,9 +20,17 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import `in`.cinny.android.R
 import `in`.cinny.android.data.CinnyRepository
+import `in`.cinny.android.ui.theme.CinnyThemeColors
+
+private val PRESET_HOMESERVERS = listOf(
+    "https://matrix.org",
+    "https://mozilla.org",
+    "https://fedora.im"
+)
 
 @Composable
 fun LoginScreen(repository: CinnyRepository) {
+    val colors = CinnyThemeColors.current
     var homeserver by rememberSaveable { mutableStateOf("https://matrix.org") }
     var username by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
@@ -33,126 +46,172 @@ fun LoginScreen(repository: CinnyRepository) {
     }
 
     if (isRestoring) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                CircularProgressIndicator()
-                Spacer(modifier = Modifier.height(12.dp))
-                Text("Restoring encrypted Matrix session…")
+        Surface(color = colors.background, modifier = Modifier.fillMaxSize()) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    CircularProgressIndicator(color = colors.primary)
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Text(
+                        text = stringResource(R.string.restoring_session),
+                        color = colors.onSurfaceMuted
+                    )
+                }
             }
         }
         return
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 24.dp, vertical = 48.dp),
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text(
-            text = stringResource(R.string.app_name),
-            style = MaterialTheme.typography.headlineLarge,
-            fontWeight = FontWeight.Bold
-        )
-        Spacer(modifier = Modifier.height(6.dp))
-        Text(
-            text = stringResource(R.string.login_subtitle),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        OutlinedTextField(
-            value = homeserver,
-            onValueChange = { homeserver = it },
-            label = { Text(stringResource(R.string.homeserver_label)) },
-            singleLine = true,
-            enabled = !isLoggingIn,
-            modifier = Modifier.fillMaxWidth()
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-
-        OutlinedTextField(
-            value = username,
-            onValueChange = { username = it },
-            label = { Text(stringResource(R.string.username_label)) },
-            placeholder = { Text("@user:matrix.org") },
-            singleLine = true,
-            enabled = !isLoggingIn,
-            modifier = Modifier.fillMaxWidth()
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-
-        OutlinedTextField(
-            value = password,
-            onValueChange = { password = it },
-            label = { Text(stringResource(R.string.password_label)) },
-            visualTransformation = PasswordVisualTransformation(),
-            singleLine = true,
-            enabled = !isLoggingIn,
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        if (authError != null) {
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                text = authError ?: "",
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodySmall
-            )
-        }
-
-        Spacer(modifier = Modifier.height(20.dp))
-
-        Button(
-            onClick = { repository.login(homeserver.trim(), username.trim(), password) },
-            enabled = !isLoggingIn && homeserver.isNotBlank() && username.isNotBlank() && password.isNotBlank(),
-            shape = RoundedCornerShape(12.dp),
+    Surface(color = colors.background, modifier = Modifier.fillMaxSize()) {
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(50.dp)
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp, vertical = 32.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            if (isLoggingIn) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(20.dp),
-                    strokeWidth = 2.dp,
-                    color = MaterialTheme.colorScheme.onPrimary
-                )
-            } else {
-                Text(stringResource(R.string.login_cta))
-            }
-        }
-
-        if (capabilities?.supportsSso != false) {
-            Spacer(modifier = Modifier.height(12.dp))
-            OutlinedButton(
-                onClick = { repository.startSsoLogin(homeserver.trim()) },
-                enabled = !isLoggingIn && homeserver.isNotBlank(),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp)
-            ) {
-                Icon(Icons.Outlined.OpenInBrowser, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(stringResource(R.string.login_sso_cta))
-            }
-
-            val providers = capabilities?.ssoProviders.orEmpty()
-            if (providers.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+            CinnySequenceCard(modifier = Modifier.widthIn(max = 440.dp)) {
+                Column(
+                    modifier = Modifier.padding(22.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    providers.take(3).forEach { idp ->
-                        FilledTonalButton(
-                            onClick = { repository.startSsoLogin(homeserver.trim(), idp.id) },
-                            modifier = Modifier.weight(1f),
-                            enabled = !isLoggingIn
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Surface(
+                            color = colors.primaryContainer,
+                            shape = RoundedCornerShape(14.dp),
+                            modifier = Modifier.size(48.dp)
                         ) {
-                            Text(idp.name, maxLines = 1)
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Lock,
+                                    contentDescription = null,
+                                    tint = colors.onPrimaryContainer
+                                )
+                            }
+                        }
+                        Column {
+                            Text(
+                                text = stringResource(R.string.app_name),
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = colors.onSurface
+                            )
+                            Text(
+                                text = stringResource(R.string.login_subtitle),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = colors.onSurfaceMuted
+                            )
+                        }
+                    }
+
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(PRESET_HOMESERVERS) { preset ->
+                            FilterChip(
+                                selected = homeserver.trim() == preset,
+                                onClick = { homeserver = preset },
+                                label = { Text(preset.removePrefix("https://")) }
+                            )
+                        }
+                    }
+
+                    OutlinedTextField(
+                        value = homeserver,
+                        onValueChange = { homeserver = it },
+                        label = { Text(stringResource(R.string.homeserver_label)) },
+                        singleLine = true,
+                        enabled = !isLoggingIn,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    OutlinedTextField(
+                        value = username,
+                        onValueChange = { username = it },
+                        label = { Text(stringResource(R.string.username_label)) },
+                        placeholder = { Text("@user:matrix.org") },
+                        singleLine = true,
+                        enabled = !isLoggingIn,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    OutlinedTextField(
+                        value = password,
+                        onValueChange = { password = it },
+                        label = { Text(stringResource(R.string.password_label)) },
+                        visualTransformation = PasswordVisualTransformation(),
+                        singleLine = true,
+                        enabled = !isLoggingIn,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    if (authError != null) {
+                        Surface(
+                            color = colors.criticalContainer,
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = authError ?: "",
+                                color = colors.critical,
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(10.dp)
+                            )
+                        }
+                    }
+
+                    Button(
+                        onClick = { repository.login(homeserver.trim(), username.trim(), password) },
+                        enabled = !isLoggingIn && homeserver.isNotBlank() && username.isNotBlank() && password.isNotBlank(),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                    ) {
+                        if (isLoggingIn) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp,
+                                color = colors.onPrimary
+                            )
+                        } else {
+                            Text(stringResource(R.string.login_cta), fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+
+                    if (capabilities?.supportsSso != false) {
+                        HorizontalDivider(color = colors.surfaceLine)
+                        OutlinedButton(
+                            onClick = { repository.startSsoLogin(homeserver.trim()) },
+                            enabled = !isLoggingIn && homeserver.isNotBlank(),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(46.dp)
+                        ) {
+                            Icon(Icons.Outlined.OpenInBrowser, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(stringResource(R.string.login_sso_cta))
+                        }
+
+                        val providers = capabilities?.ssoProviders.orEmpty()
+                        if (providers.isNotEmpty()) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                providers.take(3).forEach { idp ->
+                                    FilledTonalButton(
+                                        onClick = { repository.startSsoLogin(homeserver.trim(), idp.id) },
+                                        modifier = Modifier.weight(1f),
+                                        enabled = !isLoggingIn,
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Text(idp.name, maxLines = 1)
+                                    }
+                                }
+                            }
                         }
                     }
                 }

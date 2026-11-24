@@ -13,7 +13,9 @@ import kotlinx.coroutines.launch
 import uniffi.cinny_core.CinnyClient
 import uniffi.cinny_core.DeviceSummary
 import uniffi.cinny_core.HomeserverLoginCapabilities
+import uniffi.cinny_core.PublicRoomEntry
 import uniffi.cinny_core.RoomMemberSummary
+import uniffi.cinny_core.RoomNotificationLevel
 import uniffi.cinny_core.RoomSummary
 import uniffi.cinny_core.SecretBackupStatus
 import uniffi.cinny_core.SpaceHierarchyEntry
@@ -22,17 +24,21 @@ import uniffi.cinny_core.SyncConnectionState
 import uniffi.cinny_core.SyncObserver
 import uniffi.cinny_core.TimelineListener
 import uniffi.cinny_core.TimelineMessage
+import uniffi.cinny_core.TypingListener
+import uniffi.cinny_core.UserProfileInfo
 import uniffi.cinny_core.VerificationListener
 import uniffi.cinny_core.VerificationPhase
 import uniffi.cinny_core.buildSsoLoginUrl
 import uniffi.cinny_core.discoverLoginCapabilities
 import java.io.File
+import java.util.Collections
 
 class CinnyRepository(private val context: Context) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val secureStore = SecureSessionStore(context)
     private var client: CinnyClient? = null
     private var syncRunning = false
+    private val inFlightThumbnails = Collections.synchronizedSet(mutableSetOf<String>())
 
     private val _isAuthenticated = MutableStateFlow(false)
     val isAuthenticated: StateFlow<Boolean> = _isAuthenticated.asStateFlow()
@@ -49,8 +55,11 @@ class CinnyRepository(private val context: Context) {
     private val _pendingSsoUrl = MutableStateFlow<String?>(null)
     val pendingSsoUrl: StateFlow<String?> = _pendingSsoUrl.asStateFlow()
 
-    private val _themePreference = MutableStateFlow(secureStore.loadThemePreference())
-    val themePreference: StateFlow<ThemePreference> = _themePreference.asStateFlow()
+    private val _settings = MutableStateFlow(secureStore.loadCinnySettings())
+    val settings: StateFlow<CinnySettings> = _settings.asStateFlow()
+
+    private val _ownProfile = MutableStateFlow<UserProfileInfo?>(null)
+    val ownProfile: StateFlow<UserProfileInfo?> = _ownProfile.asStateFlow()
 
     private val _syncState = MutableStateFlow<SyncConnectionState>(SyncConnectionState.Offline)
     val syncState: StateFlow<SyncConnectionState> = _syncState.asStateFlow()
@@ -67,11 +76,25 @@ class CinnyRepository(private val context: Context) {
     private val _spaceHierarchy = MutableStateFlow<List<SpaceHierarchyEntry>>(emptyList())
     val spaceHierarchy: StateFlow<List<SpaceHierarchyEntry>> = _spaceHierarchy.asStateFlow()
 
+    private val _publicRooms = MutableStateFlow<List<PublicRoomEntry>>(emptyList())
+    val publicRooms: StateFlow<List<PublicRoomEntry>> = _publicRooms.asStateFlow()
+
+    private val _isSearchingPublicRooms = MutableStateFlow(false)
+    val isSearchingPublicRooms: StateFlow<Boolean> = _isSearchingPublicRooms.asStateFlow()
+
     private val _activeRoom = MutableStateFlow<RoomSummary?>(null)
     val activeRoom: StateFlow<RoomSummary?> = _activeRoom.asStateFlow()
 
+    private val _activeRoomNotificationLevel =
+        MutableStateFlow(RoomNotificationLevel.ALL_MESSAGES)
+    val activeRoomNotificationLevel: StateFlow<RoomNotificationLevel> =
+        _activeRoomNotificationLevel.asStateFlow()
+
     private val _messages = MutableStateFlow<List<TimelineMessage>>(emptyList())
     val messages: StateFlow<List<TimelineMessage>> = _messages.asStateFlow()
+
+    private val _typingUsers = MutableStateFlow<List<String>>(emptyList())
+    val typingUsers: StateFlow<List<String>> = _typingUsers.asStateFlow()
 
     private val _roomSearchResults = MutableStateFlow<List<TimelineMessage>>(emptyList())
     val roomSearchResults: StateFlow<List<TimelineMessage>> = _roomSearchResults.asStateFlow()
@@ -103,6 +126,9 @@ class CinnyRepository(private val context: Context) {
     private val _downloadedMediaPaths = MutableStateFlow<Map<String, String>>(emptyMap())
     val downloadedMediaPaths: StateFlow<Map<String, String>> = _downloadedMediaPaths.asStateFlow()
 
+    private val _mxcCachePaths = MutableStateFlow<Map<String, String>>(emptyMap())
+    val mxcCachePaths: StateFlow<Map<String, String>> = _mxcCachePaths.asStateFlow()
+
     private val _pushEndpoint = MutableStateFlow<String?>(secureStore.loadPushEndpoint())
     val pushEndpoint: StateFlow<String?> = _pushEndpoint.asStateFlow()
 
@@ -118,14 +144,24 @@ class CinnyRepository(private val context: Context) {
     private val _actionError = MutableStateFlow<String?>(null)
     val actionError: StateFlow<String?> = _actionError.asStateFlow()
 
+    private val _actionNotice = MutableStateFlow<String?>(null)
+    val actionNotice: StateFlow<String?> = _actionNotice.asStateFlow()
+
+    fun updateSettings(transform: (CinnySettings) -> CinnySettings) {
+        val updated = transform(_settings.value)
+        _settings.value = updated
+        secureStore.saveCinnySettings(updated)
+    }
+
     fun cycleThemePreference() {
-        val next = when (_themePreference.value) {
-            ThemePreference.FollowSystem -> ThemePreference.Dark
-            ThemePreference.Dark -> ThemePreference.Light
-            ThemePreference.Light -> ThemePreference.FollowSystem
+        val next = when (_settings.value.themeMode) {
+            CinnyThemeMode.System -> CinnyThemeMode.Light
+            CinnyThemeMode.Light -> CinnyThemeMode.Silver
+            CinnyThemeMode.Silver -> CinnyThemeMode.Dark
+            CinnyThemeMode.Dark -> CinnyThemeMode.Butter
+            CinnyThemeMode.Butter -> CinnyThemeMode.System
         }
-        _themePreference.value = next
-        secureStore.saveThemePreference(next)
+        updateSettings { it.copy(themeMode = next) }
     }
 
     fun selectSpace(spaceId: String?) {
@@ -134,6 +170,10 @@ class CinnyRepository(private val context: Context) {
 
     fun clearActionError() {
         _actionError.value = null
+    }
+
+    fun clearActionNotice() {
+        _actionNotice.value = null
     }
 
     fun probeHomeserverCapabilities(homeserverUrl: String) {
@@ -249,8 +289,61 @@ class CinnyRepository(private val context: Context) {
                 _verificationPhase.value = phase
             }
         })
-        refreshCryptoStatus()
+        refreshOwnProfile()
+        loadOwnDevices()
         startSyncLoop(activeClient)
+    }
+
+    fun refreshOwnProfile() {
+        scope.launch {
+            runCatching { client?.getOwnProfile() }
+                .onSuccess { profile ->
+                    if (profile != null) {
+                        _ownProfile.value = profile
+                        val mxc = profile.avatarMxc
+                        if (!mxc.isNullOrBlank()) {
+                            requestMxcThumbnail(mxc, 128)
+                        }
+                    }
+                }
+        }
+    }
+
+    fun updateDisplayName(displayName: String) {
+        scope.launch {
+            runCatching { client?.setDisplayName(displayName.trim().ifBlank { null }) }
+                .onSuccess {
+                    refreshOwnProfile()
+                    _actionNotice.value = "Display name updated"
+                }
+                .onFailure { err ->
+                    _actionError.value = err.message ?: "Failed to update display name"
+                }
+        }
+    }
+
+    fun requestMxcThumbnail(mxcUrl: String?, size: Int = 96) {
+        val clean = mxcUrl?.trim().orEmpty()
+        if (!clean.startsWith("mxc://")) return
+        if (_mxcCachePaths.value.containsKey(clean)) return
+        if (!inFlightThumbnails.add(clean)) return
+
+        scope.launch {
+            try {
+                val path = client?.downloadMxcThumbnail(
+                    mxcUrl = clean,
+                    size = size.toUInt(),
+                    cacheDir = context.cacheDir.absolutePath
+                )
+                if (!path.isNullOrBlank()) {
+                    _mxcCachePaths.value = _mxcCachePaths.value + (clean to path)
+                }
+            } catch (_: Exception) {
+                // Ignore transient thumbnail failures; initials avatar stays visible
+            } finally {
+                inFlightThumbnails.remove(clean)
+            }
+        }
     }
 
     fun resumeSync() {
@@ -281,12 +374,15 @@ class CinnyRepository(private val context: Context) {
         client = null
         secureStore.clearSession()
         _isAuthenticated.value = false
+        _ownProfile.value = null
         _activeRoom.value = null
         _activeThreadRoot.value = null
         _messages.value = emptyList()
+        _typingUsers.value = emptyList()
         _threadMessages.value = emptyList()
         _spaces.value = emptyList()
         _rooms.value = emptyList()
+        _devices.value = emptyList()
         _syncState.value = SyncConnectionState.Offline
     }
 
@@ -304,6 +400,12 @@ class CinnyRepository(private val context: Context) {
             override fun onSpacesUpdated(spaces: List<SpaceNode>, rooms: List<RoomSummary>) {
                 _spaces.value = spaces
                 _rooms.value = rooms
+                val currentActive = _activeRoom.value
+                if (currentActive != null) {
+                    rooms.find { it.roomId == currentActive.roomId }?.let { updated ->
+                        _activeRoom.value = updated
+                    }
+                }
             }
         })
     }
@@ -314,10 +416,17 @@ class CinnyRepository(private val context: Context) {
     }
 
     fun openRoom(room: RoomSummary) {
+        val previousId = _activeRoom.value?.roomId
+        if (previousId != null && previousId != room.roomId) {
+            scope.launch { runCatching { client?.closeRoomTimeline(previousId) } }
+        }
         _activeRoom.value = room
         _activeThreadRoot.value = null
         _threadMessages.value = emptyList()
+        _typingUsers.value = emptyList()
         _roomSearchResults.value = emptyList()
+        requestMxcThumbnail(room.avatarMxc, 96)
+
         scope.launch {
             client?.subscribeRoomTimeline(
                 roomId = room.roomId,
@@ -329,6 +438,18 @@ class CinnyRepository(private val context: Context) {
                     }
                 }
             )
+            runCatching {
+                client?.subscribeRoomTyping(
+                    roomId = room.roomId,
+                    listener = object : TypingListener {
+                        override fun onTypingUsers(roomId: String, displayNames: List<String>) {
+                            if (_activeRoom.value?.roomId == roomId) {
+                                _typingUsers.value = displayNames
+                            }
+                        }
+                    }
+                )
+            }
             runCatching { client?.markRoomAsRead(room.roomId) }
         }
     }
@@ -336,14 +457,29 @@ class CinnyRepository(private val context: Context) {
     fun closeRoom() {
         val roomId = _activeRoom.value?.roomId
         val rootId = _activeThreadRoot.value?.eventId
-        if (roomId != null && rootId != null) {
-            scope.launch { runCatching { client?.closeThreadTimeline(roomId, rootId) } }
+        scope.launch {
+            if (roomId != null && rootId != null) {
+                runCatching { client?.closeThreadTimeline(roomId, rootId) }
+            }
+            if (roomId != null) {
+                runCatching { client?.sendTyping(roomId, false) }
+                runCatching { client?.closeRoomTimeline(roomId) }
+            }
         }
         _activeRoom.value = null
         _activeThreadRoot.value = null
         _messages.value = emptyList()
+        _typingUsers.value = emptyList()
         _threadMessages.value = emptyList()
         _roomSearchResults.value = emptyList()
+    }
+
+    fun sendTypingNotice(typing: Boolean) {
+        if (_settings.value.hideActivity) return
+        val roomId = _activeRoom.value?.roomId ?: return
+        scope.launch {
+            runCatching { client?.sendTyping(roomId, typing) }
+        }
     }
 
     fun openThread(rootMessage: TimelineMessage) {
@@ -395,6 +531,7 @@ class CinnyRepository(private val context: Context) {
     fun sendMessage(markdown: String, replyToEventId: String? = null) {
         val roomId = _activeRoom.value?.roomId ?: return
         scope.launch {
+            runCatching { client?.sendTyping(roomId, false) }
             runCatching { client?.sendMarkdownMessage(roomId, markdown, replyToEventId) }
                 .onFailure { _actionError.value = it.message }
             runCatching { client?.markRoomAsRead(roomId) }
@@ -458,6 +595,7 @@ class CinnyRepository(private val context: Context) {
         val roomId = _activeRoom.value?.roomId ?: return
         scope.launch {
             runCatching { client?.editMarkdownMessage(roomId, eventId, newMarkdown) }
+                .onFailure { _actionError.value = it.message }
         }
     }
 
@@ -465,6 +603,7 @@ class CinnyRepository(private val context: Context) {
         val roomId = _activeRoom.value?.roomId ?: return
         scope.launch {
             runCatching { client?.redactMessage(roomId, eventId, null) }
+                .onFailure { _actionError.value = it.message }
         }
     }
 
@@ -475,12 +614,41 @@ class CinnyRepository(private val context: Context) {
         }
     }
 
-    // --- Spaces & Room Management ---
+    // --- Spaces, Explore & Room Settings ---
 
     fun loadSpaceHierarchy(spaceId: String) {
         scope.launch {
             runCatching { client?.browseSpaceHierarchy(spaceId) }
                 .onSuccess { list -> _spaceHierarchy.value = list.orEmpty() }
+                .onFailure { _actionError.value = it.message }
+        }
+    }
+
+    fun searchPublicRooms(server: String?, searchTerm: String?) {
+        scope.launch {
+            _isSearchingPublicRooms.value = true
+            runCatching {
+                client?.searchPublicRooms(
+                    server = server?.trim()?.ifBlank { null },
+                    searchTerm = searchTerm?.trim()?.ifBlank { null },
+                    limit = 40u
+                )
+            }
+                .onSuccess { list -> _publicRooms.value = list.orEmpty() }
+                .onFailure { _actionError.value = it.message ?: "Public directory search failed" }
+            _isSearchingPublicRooms.value = false
+        }
+    }
+
+    fun createSpace(name: String, topic: String?, isPublic: Boolean) {
+        scope.launch {
+            runCatching { client?.createSpace(name, topic, isPublic) }
+                .onSuccess { newSpaceId ->
+                    if (!newSpaceId.isNullOrBlank()) {
+                        _selectedSpaceId.value = newSpaceId
+                        _actionNotice.value = "Space created"
+                    }
+                }
                 .onFailure { _actionError.value = it.message }
         }
     }
@@ -495,13 +663,27 @@ class CinnyRepository(private val context: Context) {
                     isEncrypted = isEncrypted,
                     inviteUserIds = inviteIds
                 )
-            }.onFailure { _actionError.value = it.message }
+            }
+                .onSuccess { _actionNotice.value = if (isDirect) "Direct chat started" else "Room created" }
+                .onFailure { _actionError.value = it.message }
         }
     }
 
     fun joinRoom(roomIdOrAlias: String) {
         scope.launch {
             runCatching { client?.joinRoom(roomIdOrAlias) }
+                .onSuccess { joinedId ->
+                    if (!joinedId.isNullOrBlank()) {
+                        _publicRooms.value = _publicRooms.value.map {
+                            if (it.roomId == joinedId || it.canonicalAlias == roomIdOrAlias) {
+                                it.copy(isJoined = true)
+                            } else {
+                                it
+                            }
+                        }
+                        _actionNotice.value = "Joined room"
+                    }
+                }
                 .onFailure { _actionError.value = it.message }
         }
     }
@@ -528,6 +710,10 @@ class CinnyRepository(private val context: Context) {
     fun inviteUser(roomId: String, userId: String) {
         scope.launch {
             runCatching { client?.inviteUser(roomId, userId) }
+                .onSuccess {
+                    _actionNotice.value = "Invited $userId"
+                    loadRoomMembers(roomId)
+                }
                 .onFailure { _actionError.value = it.message }
         }
     }
@@ -536,6 +722,43 @@ class CinnyRepository(private val context: Context) {
         scope.launch {
             runCatching { client?.listRoomMembers(roomId) }
                 .onSuccess { members -> _roomMembers.value = members.orEmpty() }
+        }
+    }
+
+    fun loadRoomSettingsData(roomId: String) {
+        loadRoomMembers(roomId)
+        scope.launch {
+            runCatching { client?.getRoomNotificationLevel(roomId) }
+                .onSuccess { level ->
+                    if (level != null) {
+                        _activeRoomNotificationLevel.value = level
+                    }
+                }
+        }
+    }
+
+    fun updateRoomName(roomId: String, newName: String) {
+        scope.launch {
+            runCatching { client?.updateRoomName(roomId, newName.trim()) }
+                .onSuccess { _actionNotice.value = "Room name updated" }
+                .onFailure { _actionError.value = it.message }
+        }
+    }
+
+    fun updateRoomTopic(roomId: String, newTopic: String) {
+        scope.launch {
+            runCatching { client?.updateRoomTopic(roomId, newTopic.trim()) }
+                .onSuccess { _actionNotice.value = "Room topic updated" }
+                .onFailure { _actionError.value = it.message }
+        }
+    }
+
+    fun setRoomNotificationLevel(roomId: String, level: RoomNotificationLevel) {
+        scope.launch {
+            _activeRoomNotificationLevel.value = level
+            runCatching { client?.setRoomNotificationLevel(roomId, level) }
+                .onSuccess { _actionNotice.value = "Notification level saved" }
+                .onFailure { _actionError.value = it.message }
         }
     }
 
@@ -563,6 +786,7 @@ class CinnyRepository(private val context: Context) {
                 .onSuccess { status ->
                     _secretBackupStatus.value = status
                     _cryptoNotice.value = "4S cross-signing and room key backup restored."
+                    loadOwnDevices()
                 }
                 .onFailure { err ->
                     _cryptoNotice.value = err.message ?: "Recovery failed"

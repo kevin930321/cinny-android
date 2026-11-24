@@ -6,22 +6,19 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.Logout
-import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.DarkMode
-import androidx.compose.material.icons.outlined.Explore
-import androidx.compose.material.icons.outlined.Lock
-import androidx.compose.material.icons.outlined.Notifications
-import androidx.compose.material.icons.outlined.Tag
-import androidx.compose.material.icons.outlined.VerifiedUser
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -29,29 +26,69 @@ import androidx.compose.ui.unit.dp
 import `in`.cinny.android.R
 import `in`.cinny.android.data.CinnyRepository
 import `in`.cinny.android.ui.CinnyViewModel
+import `in`.cinny.android.ui.theme.CinnyThemeColors
 import uniffi.cinny_core.RoomCategory
 import uniffi.cinny_core.RoomSummary
 import uniffi.cinny_core.SyncConnectionState
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeSpaceScreen(
     repository: CinnyRepository,
     onOpenVerify: () -> Unit,
-    onOpenPushSettings: () -> Unit
+    onOpenSettings: () -> Unit,
+    onOpenExplore: () -> Unit,
+    onOpenInbox: () -> Unit
 ) {
+    val colors = CinnyThemeColors.current
+    val settings by repository.settings.collectAsState()
+    val ownProfile by repository.ownProfile.collectAsState()
     val spaces by repository.spaces.collectAsState()
     val rooms by repository.rooms.collectAsState()
     val selectedSpaceId by repository.selectedSpaceId.collectAsState()
     val spaceHierarchy by repository.spaceHierarchy.collectAsState()
     val syncState by repository.syncState.collectAsState()
-    var searchQuery by rememberSaveable { mutableStateOf("") }
-    var showCreateOrJoinDialog by rememberSaveable { mutableStateOf(false) }
-    var showExploreSpaceDialog by rememberSaveable { mutableStateOf(false) }
+    val devices by repository.devices.collectAsState()
+    val mxcCachePaths by repository.mxcCachePaths.collectAsState()
 
-    val filteredRooms = remember(rooms, selectedSpaceId, searchQuery) {
-        CinnyViewModel.filterRooms(rooms, selectedSpaceId, searchQuery)
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+    var showCreateHub by rememberSaveable { mutableStateOf(false) }
+    var showExploreSpaceDialog by rememberSaveable { mutableStateOf(false) }
+    var invitesExpanded by rememberSaveable { mutableStateOf(true) }
+    var channelsExpanded by rememberSaveable { mutableStateOf(true) }
+    var dmsExpanded by rememberSaveable { mutableStateOf(true) }
+
+    val filteredRooms = remember(rooms, selectedSpaceId, searchQuery, settings.sortRoomsByActivity) {
+        val base = CinnyViewModel.filterRooms(rooms, selectedSpaceId, searchQuery)
+        CinnyViewModel.sortRooms(base, settings.sortRoomsByActivity)
     }
+
+    val invitedRooms = remember(filteredRooms) {
+        filteredRooms.filter { it.category == RoomCategory.INVITED }
+    }
+    val regularRooms = remember(filteredRooms) {
+        filteredRooms.filter { it.category != RoomCategory.INVITED && !it.isDirect }
+    }
+    val dmRooms = remember(filteredRooms) {
+        filteredRooms.filter { it.category != RoomCategory.INVITED && it.isDirect }
+    }
+    val joinedNonInvited = remember(filteredRooms) {
+        filteredRooms.filter { it.category != RoomCategory.INVITED }
+    }
+
+    val dmUnreadTotal = remember(rooms) {
+        rooms.filter { it.isDirect && it.category != RoomCategory.INVITED }
+            .sumOf { it.unreadCount.toInt() }
+            .toUInt()
+    }
+    val inboxBadgeTotal = remember(rooms) {
+        val unreadRooms = rooms.count { it.category != RoomCategory.INVITED && it.unreadCount > 0u }.toUInt()
+        val inviteCount = rooms.count { it.category == RoomCategory.INVITED }.toUInt()
+        unreadRooms + inviteCount
+    }
+    val hasUnverified = remember(devices) {
+        devices.any { !it.isVerified }
+    }
+
     val subSpaces = remember(spaces, selectedSpaceId) {
         if (selectedSpaceId != null && selectedSpaceId != "dm") {
             CinnyViewModel.childSpacesFor(spaces, selectedSpaceId)
@@ -60,142 +97,368 @@ fun HomeSpaceScreen(
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    val activeSpaceName = spaces.find { it.roomId == selectedSpaceId }?.name
-                        ?: if (selectedSpaceId == "dm") "Direct Messages" else "Home"
-                    Column {
-                        Text(activeSpaceName, fontWeight = FontWeight.SemiBold)
-                        val syncText = when (syncState) {
-                            is SyncConnectionState.Live -> stringResource(R.string.sync_live)
-                            is SyncConnectionState.Syncing,
-                            is SyncConnectionState.CatchingUp -> stringResource(R.string.sync_syncing)
-                            is SyncConnectionState.Offline -> stringResource(R.string.sync_offline)
-                            is SyncConnectionState.TokenInvalid -> stringResource(R.string.sync_token_invalid)
-                            is SyncConnectionState.Error -> (syncState as SyncConnectionState.Error).message
+    val activeSpaceName = spaces.find { it.roomId == selectedSpaceId }?.name
+        ?: if (selectedSpaceId == "dm") {
+            stringResource(R.string.space_direct_messages)
+        } else {
+            stringResource(R.string.space_home)
+        }
+
+    Row(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(colors.background)
+            .windowInsetsPadding(WindowInsets.safeDrawing)
+    ) {
+        // Left Cinny Space Rail (64dp)
+        Column(
+            modifier = Modifier
+                .width(64.dp)
+                .fillMaxHeight()
+                .background(colors.background)
+                .padding(vertical = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Top Sticky: Home & Direct Messages
+            SpaceRailIconButton(
+                icon = Icons.Outlined.Home,
+                contentDescription = stringResource(R.string.space_home),
+                selected = selectedSpaceId == null,
+                badgeCount = 0u,
+                onClick = { repository.selectSpace(null) }
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            SpaceRailIconButton(
+                icon = Icons.Outlined.ChatBubbleOutline,
+                contentDescription = stringResource(R.string.space_direct_messages),
+                selected = selectedSpaceId == "dm",
+                badgeCount = dmUnreadTotal,
+                onClick = { repository.selectSpace("dm") }
+            )
+
+            HorizontalDivider(
+                color = colors.surfaceLine,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+            )
+
+            // Scrollable Spaces
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState()),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                spaces.filter { it.parentSpaceIds.isEmpty() }.forEach { space ->
+                    val selected = selectedSpaceId == space.roomId
+                    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        if (selected) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.CenterStart)
+                                    .width(4.dp)
+                                    .height(22.dp)
+                                    .clip(RoundedCornerShape(topEnd = 4.dp, bottomEnd = 4.dp))
+                                    .background(colors.primary)
+                            )
                         }
+                        Box(
+                            modifier = Modifier
+                                .size(42.dp)
+                                .clip(RoundedCornerShape(if (selected) 12.dp else 21.dp))
+                                .clickable { repository.selectSpace(space.roomId) },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            MxcAvatar(
+                                name = space.name,
+                                seedId = space.roomId,
+                                mxcUrl = space.avatarMxc,
+                                mxcCachePaths = mxcCachePaths,
+                                onRequestMxc = { repository.requestMxcThumbnail(it, 96) },
+                                size = 42.dp,
+                                cornerRadius = if (selected) 12.dp else 21.dp
+                            )
+                        }
+                        if (space.unreadNotifications > 0u) {
+                            CinnyCountBadge(
+                                count = space.unreadNotifications,
+                                highlight = space.highlightCount > 0u,
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .padding(end = 6.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
+            HorizontalDivider(
+                color = colors.surfaceLine,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            )
+
+            // Bottom Sticky: Create, Explore, Inbox, Verification Warning, User Settings
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                SpaceRailIconButton(
+                    icon = Icons.Outlined.Add,
+                    contentDescription = stringResource(R.string.action_create),
+                    selected = false,
+                    badgeCount = 0u,
+                    onClick = { showCreateHub = true }
+                )
+                SpaceRailIconButton(
+                    icon = Icons.Outlined.Explore,
+                    contentDescription = stringResource(R.string.explore_title),
+                    selected = false,
+                    badgeCount = 0u,
+                    onClick = onOpenExplore
+                )
+                SpaceRailIconButton(
+                    icon = Icons.Outlined.Inbox,
+                    contentDescription = stringResource(R.string.inbox_title),
+                    selected = false,
+                    badgeCount = inboxBadgeTotal,
+                    onClick = onOpenInbox
+                )
+                if (hasUnverified) {
+                    IconButton(onClick = onOpenVerify) {
+                        Icon(
+                            imageVector = Icons.Outlined.GppMaybe,
+                            contentDescription = stringResource(R.string.verify_warning_desc),
+                            tint = colors.warning
+                        )
+                    }
+                }
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .clickable(onClick = onOpenSettings),
+                    contentAlignment = Alignment.Center
+                ) {
+                    MxcAvatar(
+                        name = ownProfile?.displayName ?: ownProfile?.userId ?: "Me",
+                        seedId = ownProfile?.userId ?: "me",
+                        mxcUrl = ownProfile?.avatarMxc,
+                        mxcCachePaths = mxcCachePaths,
+                        onRequestMxc = { repository.requestMxcThumbnail(it, 96) },
+                        size = 38.dp,
+                        cornerRadius = 19.dp
+                    )
+                }
+            }
+        }
+
+        VerticalDivider(color = colors.surfaceLine)
+
+        // Right Room List Surface
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight()
+                .background(colors.surface)
+        ) {
+            // Cinny Room List Header
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = activeSpaceName,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = colors.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        val (dotColor, syncText) = when (syncState) {
+                            is SyncConnectionState.Live -> colors.success to stringResource(R.string.sync_live)
+                            is SyncConnectionState.Syncing,
+                            is SyncConnectionState.CatchingUp -> colors.warning to stringResource(R.string.sync_syncing)
+                            is SyncConnectionState.Offline -> colors.onSurfaceMuted to stringResource(R.string.sync_offline)
+                            is SyncConnectionState.TokenInvalid -> colors.critical to stringResource(R.string.sync_token_invalid)
+                            is SyncConnectionState.Error -> colors.critical to (syncState as SyncConnectionState.Error).message
+                        }
+                        Box(
+                            modifier = Modifier
+                                .size(7.dp)
+                                .clip(CircleShape)
+                                .background(dotColor)
+                        )
                         Text(
                             text = syncText,
                             style = MaterialTheme.typography.labelSmall,
-                            color = if (syncState is SyncConnectionState.Error || syncState is SyncConnectionState.TokenInvalid) {
-                                MaterialTheme.colorScheme.error
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            },
+                            color = colors.onSurfaceMuted,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                     }
-                },
-                actions = {
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     if (selectedSpaceId != null && selectedSpaceId != "dm") {
                         IconButton(onClick = {
                             repository.loadSpaceHierarchy(selectedSpaceId!!)
                             showExploreSpaceDialog = true
                         }) {
-                            Icon(Icons.Outlined.Explore, contentDescription = "Explore Space")
+                            Icon(
+                                Icons.Outlined.AccountTree,
+                                contentDescription = "Space Hierarchy",
+                                tint = colors.onSurfaceMuted
+                            )
                         }
                     }
-                    IconButton(onClick = { showCreateOrJoinDialog = true }) {
-                        Icon(Icons.Outlined.Add, contentDescription = "New or Join Room")
+                    IconButton(onClick = onOpenSettings) {
+                        Icon(
+                            Icons.Outlined.Settings,
+                            contentDescription = stringResource(R.string.settings_title),
+                            tint = colors.onSurfaceMuted
+                        )
                     }
-                    IconButton(onClick = onOpenPushSettings) {
-                        Icon(Icons.Outlined.Notifications, contentDescription = "Push Settings")
-                    }
-                    IconButton(onClick = onOpenVerify) {
-                        Icon(Icons.Outlined.VerifiedUser, contentDescription = "Security Center")
-                    }
-                    IconButton(onClick = { repository.cycleThemePreference() }) {
-                        Icon(Icons.Outlined.DarkMode, contentDescription = "Cycle Theme")
-                    }
-                    IconButton(onClick = { repository.logout() }) {
-                        Icon(Icons.AutoMirrored.Outlined.Logout, contentDescription = "Sign out")
-                    }
-                }
-            )
-        }
-    ) { padding ->
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-        ) {
-            // Left Cinny Space Rail (64dp)
-            Column(
-                modifier = Modifier
-                    .width(64.dp)
-                    .fillMaxHeight()
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .padding(vertical = 12.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                SpaceRailTile(
-                    label = "All",
-                    selected = selectedSpaceId == null,
-                    unread = 0u,
-                    onClick = { repository.selectSpace(null) }
-                )
-                SpaceRailTile(
-                    label = "DM",
-                    selected = selectedSpaceId == "dm",
-                    unread = 0u,
-                    onClick = { repository.selectSpace("dm") }
-                )
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 14.dp))
-                spaces.filter { it.parentSpaceIds.isEmpty() }.forEach { space ->
-                    SpaceRailTile(
-                        label = space.name.take(2).uppercase(),
-                        selected = selectedSpaceId == space.roomId,
-                        unread = space.unreadNotifications,
-                        onClick = { repository.selectSpace(space.roomId) }
-                    )
                 }
             }
 
-            // Room List Column
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-                    .padding(horizontal = 12.dp)
+            HorizontalDivider(color = colors.surfaceLine)
+
+            // Search Input
+            Box(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholder = {
+                        Text(
+                            stringResource(R.string.search_rooms_hint),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    },
+                    leadingIcon = {
+                        Icon(
+                            Icons.Outlined.Search,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    },
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { searchQuery = "" }) {
+                                Icon(Icons.Outlined.Close, contentDescription = null, modifier = Modifier.size(16.dp))
+                            }
+                        }
+                    },
+                    singleLine = true,
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            if (subSpaces.isNotEmpty()) {
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                ) {
+                    items(subSpaces, key = { it.roomId }) { sub ->
+                        FilterChip(
+                            selected = false,
+                            onClick = { repository.selectSpace(sub.roomId) },
+                            label = { Text(sub.name) }
+                        )
+                    }
+                }
+            }
+
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
-                if (subSpaces.isNotEmpty()) {
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.padding(top = 8.dp)
-                    ) {
-                        items(subSpaces, key = { it.roomId }) { sub ->
-                            AssistChip(
-                                onClick = { repository.selectSpace(sub.roomId) },
-                                label = { Text(sub.name) }
+                if (invitedRooms.isNotEmpty()) {
+                    item {
+                        CollapsibleRoomCategoryHeader(
+                            title = "${stringResource(R.string.inbox_invites_tab)} (${invitedRooms.size})",
+                            expanded = invitesExpanded,
+                            onToggle = { invitesExpanded = !invitesExpanded }
+                        )
+                    }
+                    if (invitesExpanded) {
+                        items(invitedRooms, key = { it.roomId }) { room ->
+                            CinnyRoomListRow(
+                                room = room,
+                                showAvatar = settings.showRoomAvatars,
+                                mxcCachePaths = mxcCachePaths,
+                                onRequestMxc = { repository.requestMxcThumbnail(it, 96) },
+                                onClick = { },
+                                onAcceptInvite = { repository.acceptInvite(room.roomId) },
+                                onDeclineInvite = { repository.leaveRoom(room.roomId) }
                             )
                         }
                     }
                 }
 
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    placeholder = { Text(stringResource(R.string.search_rooms_hint)) },
-                    singleLine = true,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp)
-                )
-
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    items(filteredRooms, key = { it.roomId }) { room ->
-                        RoomListRow(
+                if (selectedSpaceId == null && !settings.sortRoomsByActivity) {
+                    if (regularRooms.isNotEmpty()) {
+                        item {
+                            CollapsibleRoomCategoryHeader(
+                                title = stringResource(R.string.category_rooms),
+                                expanded = channelsExpanded,
+                                onToggle = { channelsExpanded = !channelsExpanded }
+                            )
+                        }
+                        if (channelsExpanded) {
+                            items(regularRooms, key = { it.roomId }) { room ->
+                                CinnyRoomListRow(
+                                    room = room,
+                                    showAvatar = settings.showRoomAvatars,
+                                    mxcCachePaths = mxcCachePaths,
+                                    onRequestMxc = { repository.requestMxcThumbnail(it, 96) },
+                                    onClick = { repository.openRoom(room) },
+                                    onAcceptInvite = {},
+                                    onDeclineInvite = {}
+                                )
+                            }
+                        }
+                    }
+                    if (dmRooms.isNotEmpty()) {
+                        item {
+                            CollapsibleRoomCategoryHeader(
+                                title = stringResource(R.string.space_direct_messages),
+                                expanded = dmsExpanded,
+                                onToggle = { dmsExpanded = !dmsExpanded }
+                            )
+                        }
+                        if (dmsExpanded) {
+                            items(dmRooms, key = { it.roomId }) { room ->
+                                CinnyRoomListRow(
+                                    room = room,
+                                    showAvatar = settings.showRoomAvatars,
+                                    mxcCachePaths = mxcCachePaths,
+                                    onRequestMxc = { repository.requestMxcThumbnail(it, 96) },
+                                    onClick = { repository.openRoom(room) },
+                                    onAcceptInvite = {},
+                                    onDeclineInvite = {}
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    items(joinedNonInvited, key = { it.roomId }) { room ->
+                        CinnyRoomListRow(
                             room = room,
+                            showAvatar = settings.showRoomAvatars,
+                            mxcCachePaths = mxcCachePaths,
+                            onRequestMxc = { repository.requestMxcThumbnail(it, 96) },
                             onClick = { repository.openRoom(room) },
-                            onAcceptInvite = { repository.acceptInvite(room.roomId) },
-                            onDeclineInvite = { repository.leaveRoom(room.roomId) }
+                            onAcceptInvite = {},
+                            onDeclineInvite = {}
                         )
                     }
                 }
@@ -203,35 +466,33 @@ fun HomeSpaceScreen(
         }
     }
 
-    if (showCreateOrJoinDialog) {
-        CreateOrJoinRoomDialog(
-            onCreate = { name, topic, encrypted, invite ->
-                repository.createRoom(
-                    name = name,
-                    topic = topic.ifBlank { null },
-                    isDirect = false,
-                    isEncrypted = encrypted,
-                    inviteIds = invite.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-                )
-                showCreateOrJoinDialog = false
+    if (showCreateHub) {
+        CreateHubDialog(
+            onCreateRoom = { name, topic, isDirect, encrypted, inviteIds ->
+                repository.createRoom(name, topic, isDirect, encrypted, inviteIds)
+                showCreateHub = false
             },
-            onJoin = { aliasOrId ->
+            onCreateSpace = { name, topic, isPublic ->
+                repository.createSpace(name, topic, isPublic)
+                showCreateHub = false
+            },
+            onJoinRoom = { aliasOrId ->
                 repository.joinRoom(aliasOrId)
-                showCreateOrJoinDialog = false
+                showCreateHub = false
             },
-            onDismiss = { showCreateOrJoinDialog = false }
+            onDismiss = { showCreateHub = false }
         )
     }
 
     if (showExploreSpaceDialog && selectedSpaceId != null) {
         AlertDialog(
             onDismissRequest = { showExploreSpaceDialog = false },
-            title = { Text("Discover Space Rooms", fontWeight = FontWeight.SemiBold) },
+            title = { Text("Space Hierarchy", fontWeight = FontWeight.SemiBold) },
             text = {
                 if (spaceHierarchy.isEmpty()) {
-                    Text("Loading rooms in Space…")
+                    Text("Loading Space rooms…")
                 } else {
-                    LazyColumn(modifier = Modifier.heightIn(max = 300.dp)) {
+                    LazyColumn(modifier = Modifier.heightIn(max = 320.dp)) {
                         items(spaceHierarchy, key = { it.roomId }) { entry ->
                             Row(
                                 modifier = Modifier
@@ -245,178 +506,199 @@ fun HomeSpaceScreen(
                                     Text(
                                         "${entry.numJoinedMembers} members",
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        color = colors.onSurfaceMuted
                                     )
                                 }
                                 if (entry.isJoined) {
-                                    Text("Joined", style = MaterialTheme.typography.labelMedium)
+                                    Text("Joined", style = MaterialTheme.typography.labelMedium, color = colors.success)
                                 } else {
                                     TextButton(onClick = { repository.joinRoom(entry.roomId) }) {
-                                        Text("Join")
+                                        Text(stringResource(R.string.action_join))
                                     }
                                 }
                             }
-                            HorizontalDivider()
+                            HorizontalDivider(color = colors.surfaceLine)
                         }
                     }
                 }
             },
             confirmButton = {
-                TextButton(onClick = { showExploreSpaceDialog = false }) { Text("Close") }
+                TextButton(onClick = { showExploreSpaceDialog = false }) {
+                    Text(stringResource(R.string.action_close))
+                }
             }
         )
     }
 }
 
 @Composable
-private fun CreateOrJoinRoomDialog(
-    onCreate: (String, String, Boolean, String) -> Unit,
-    onJoin: (String) -> Unit,
-    onDismiss: () -> Unit
-) {
-    var mode by remember { mutableIntStateOf(0) }
-    var roomName by remember { mutableStateOf("") }
-    var roomTopic by remember { mutableStateOf("") }
-    var inviteIds by remember { mutableStateOf("") }
-    var encrypted by remember { mutableStateOf(true) }
-    var joinAlias by remember { mutableStateOf("") }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(if (mode == 0) "Create Matrix Room" else "Join Room or Alias") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(selected = mode == 0, onClick = { mode = 0 }, label = { Text("Create") })
-                    FilterChip(selected = mode == 1, onClick = { mode = 1 }, label = { Text("Join") })
-                }
-                if (mode == 0) {
-                    OutlinedTextField(value = roomName, onValueChange = { roomName = it }, label = { Text("Room Name") }, singleLine = true)
-                    OutlinedTextField(value = roomTopic, onValueChange = { roomTopic = it }, label = { Text("Topic (optional)") }, singleLine = true)
-                    OutlinedTextField(value = inviteIds, onValueChange = { inviteIds = it }, label = { Text("Invite @user:server (comma-separated)") }, singleLine = true)
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                        Text("Enable Megolm E2EE")
-                        Switch(checked = encrypted, onCheckedChange = { encrypted = it })
-                    }
-                } else {
-                    OutlinedTextField(
-                        value = joinAlias,
-                        onValueChange = { joinAlias = it },
-                        label = { Text("#alias:matrix.org or !roomId:server") },
-                        singleLine = true
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    if (mode == 0 && roomName.isNotBlank()) {
-                        onCreate(roomName.trim(), roomTopic.trim(), encrypted, inviteIds)
-                    } else if (mode == 1 && joinAlias.isNotBlank()) {
-                        onJoin(joinAlias.trim())
-                    }
-                }
-            ) {
-                Text(if (mode == 0) "Create" else "Join")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
-        }
-    )
-}
-
-@Composable
-private fun SpaceRailTile(
-    label: String,
+private fun SpaceRailIconButton(
+    icon: ImageVector,
+    contentDescription: String,
     selected: Boolean,
-    unread: UInt,
+    badgeCount: UInt,
     onClick: () -> Unit
 ) {
+    val colors = CinnyThemeColors.current
     Box(
-        modifier = Modifier
-            .size(44.dp)
-            .clip(RoundedCornerShape(if (selected) 12.dp else 22.dp))
-            .background(
-                if (selected) MaterialTheme.colorScheme.primary
-                else MaterialTheme.colorScheme.surface
-            )
-            .clickable(onClick = onClick),
+        modifier = Modifier.fillMaxWidth(),
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.Bold,
-            color = if (selected) MaterialTheme.colorScheme.onPrimary
-            else MaterialTheme.colorScheme.onSurface
-        )
-        if (unread > 0u) {
-            Text(
-                text = unread.toString(),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.primary,
+        if (selected) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .width(4.dp)
+                    .height(22.dp)
+                    .clip(RoundedCornerShape(topEnd = 4.dp, bottomEnd = 4.dp))
+                    .background(colors.primary)
+            )
+        }
+        Box(
+            modifier = Modifier
+                .size(42.dp)
+                .clip(RoundedCornerShape(if (selected) 12.dp else 21.dp))
+                .background(if (selected) colors.primaryContainer else colors.surface)
+                .clickable(onClick = onClick),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = contentDescription,
+                tint = if (selected) colors.onPrimaryContainer else colors.onSurface,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+        if (badgeCount > 0u) {
+            CinnyCountBadge(
+                count = badgeCount,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(2.dp)
+                    .padding(end = 6.dp)
             )
         }
     }
 }
 
 @Composable
-private fun RoomListRow(
+private fun CollapsibleRoomCategoryHeader(
+    title: String,
+    expanded: Boolean,
+    onToggle: () -> Unit
+) {
+    val colors = CinnyThemeColors.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onToggle)
+            .padding(horizontal = 8.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Icon(
+            imageVector = if (expanded) Icons.Outlined.ExpandMore else Icons.Outlined.ChevronRight,
+            contentDescription = null,
+            tint = colors.onSurfaceMuted,
+            modifier = Modifier.size(16.dp)
+        )
+        Text(
+            text = title.uppercase(),
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = colors.onSurfaceMuted
+        )
+    }
+}
+
+@Composable
+private fun CinnyRoomListRow(
     room: RoomSummary,
+    showAvatar: Boolean,
+    mxcCachePaths: Map<String, String>,
+    onRequestMxc: (String?) -> Unit,
     onClick: () -> Unit,
     onAcceptInvite: () -> Unit,
     onDeclineInvite: () -> Unit
 ) {
-    val subtitle = room.lastMessagePreview ?: room.topic
+    val colors = CinnyThemeColors.current
+    val preview = room.lastMessagePreview
+    val sender = room.lastMessageSender
+    val subtitle = when {
+        !preview.isNullOrBlank() && !sender.isNullOrBlank() -> "$sender: $preview"
+        !preview.isNullOrBlank() -> preview
+        else -> room.topic
+    }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
             .clickable(enabled = room.category != RoomCategory.INVITED, onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(horizontal = 10.dp, vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Icon(
-            imageVector = if (room.isEncrypted) Icons.Outlined.Lock else Icons.Outlined.Tag,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(18.dp)
-        )
-        Spacer(modifier = Modifier.width(10.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = room.name,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = if (room.unreadCount > 0u) FontWeight.SemiBold else FontWeight.Normal,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+        if (showAvatar) {
+            MxcAvatar(
+                name = room.name,
+                seedId = room.roomId,
+                mxcUrl = room.avatarMxc,
+                mxcCachePaths = mxcCachePaths,
+                onRequestMxc = onRequestMxc,
+                size = 38.dp,
+                cornerRadius = if (room.isDirect) 19.dp else 10.dp
             )
+        } else {
+            Icon(
+                imageVector = if (room.isEncrypted) Icons.Outlined.Lock else Icons.Outlined.Tag,
+                contentDescription = null,
+                tint = if (room.isEncrypted) colors.success else colors.onSurfaceMuted,
+                modifier = Modifier.size(18.dp)
+            )
+        }
+
+        Column(modifier = Modifier.weight(1f)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                if (showAvatar && room.isEncrypted) {
+                    Icon(
+                        imageVector = Icons.Outlined.Lock,
+                        contentDescription = null,
+                        tint = colors.success,
+                        modifier = Modifier.size(12.dp)
+                    )
+                }
+                Text(
+                    text = room.name,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = if (room.unreadCount > 0u) FontWeight.Bold else FontWeight.Medium,
+                    color = colors.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
             if (!subtitle.isNullOrBlank()) {
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = colors.onSurfaceMuted,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }
         }
+
         if (room.category == RoomCategory.INVITED) {
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                TextButton(onClick = onAcceptInvite) { Text("Join") }
-                TextButton(onClick = onDeclineInvite) { Text("Decline") }
+                TextButton(onClick = onAcceptInvite) { Text(stringResource(R.string.action_join)) }
+                TextButton(onClick = onDeclineInvite) { Text(stringResource(R.string.action_decline), color = colors.critical) }
             }
         } else if (room.unreadCount > 0u) {
-            Text(
-                text = room.unreadCount.toString(),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Bold
+            CinnyCountBadge(
+                count = room.unreadCount,
+                highlight = room.highlightCount > 0u
             )
         }
     }

@@ -2,6 +2,7 @@
 <resources>
     <string name="app_name">Cinny</string>
     <string name="login_subtitle">Sign in to your Matrix homeserver with Rust E2EE</string>
+    <string name="restoring_session">Restoring encrypted Matrix session…</string>
     <string name="login_cta">Continue with Matrix</string>
     <string name="login_sso_cta">Continue with SSO / OIDC (Browser)</string>
     <string name="homeserver_label">Homeserver URL</string>
@@ -15,4 +16,96 @@
     <string name="sync_token_invalid">Session expired. Please sign in again.</string>
     <string name="notification_channel_messages">Matrix Messages</string>
     <string name="notification_channel_messages_desc">Decrypted room &amp; direct message notifications</string>
+
+    <string name="space_home">Home</string>
+    <string name="space_direct_messages">Direct Messages</string>
+    <string name="category_rooms">Rooms</string>
+    <string name="verify_warning_desc">Unverified sessions</string>
+
+    <string name="action_back">Back</string>
+    <string name="action_close">Close</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_save">Save</string>
+    <string name="action_send">Send</string>
+    <string name="action_search">Search</string>
+    <string name="action_create">Create</string>
+    <string name="action_join">Join</string>
+    <string name="action_decline">Decline</string>
+    <string name="action_open">Open</string>
+    <string name="action_invite">Invite</string>
+    <string name="action_reply">Reply</string>
+    <string name="action_open_thread">Open Thread</string>
+    <string name="action_copy_text">Copy Message</string>
+    <string name="action_view_source">View Event Source</string>
+    <string name="action_edit">Edit</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_leave_room">Leave Room</string>
+    <string name="action_sign_out">Sign Out</string>
+    <string name="action_start_chat">Start Chat</string>
+    <string name="sign_out_confirm_desc">Sign out of this Matrix session? Local encrypted keys will be cleared from this device.</string>
+
+    <string name="create_room_title">Create Room</string>
+    <string name="create_space_title">Create Space</string>
+    <string name="start_dm_title">Start Direct Chat</string>
+    <string name="join_room_title">Join Room or Alias</string>
+    <string name="tab_room">Room</string>
+    <string name="tab_space">Space</string>
+    <string name="tab_dm">DM</string>
+    <string name="tab_join">Join</string>
+    <string name="room_name_label">Room Name</string>
+    <string name="space_name_label">Space Name</string>
+    <string name="topic_optional_label">Topic (optional)</string>
+    <string name="enable_e2ee_label">Enable Megolm E2EE</string>
+    <string name="public_space_label">Public Space</string>
+
+    <string name="explore_title">Explore</string>
+    <string name="explore_directory_heading">Public Room Directory</string>
+    <string name="explore_search_hint">Search public rooms…</string>
+    <string name="explore_home_server">My Server</string>
+    <string name="explore_custom_server_label">Server Hostname</string>
+    <string name="explore_empty">No public rooms found for this query.</string>
+
+    <string name="inbox_title">Inbox</string>
+    <string name="inbox_notifications_tab">Notifications</string>
+    <string name="inbox_invites_tab">Invites</string>
+    <string name="inbox_notifications_empty">All caught up! No unread messages.</string>
+    <string name="inbox_invites_empty">No pending room or DM invitations.</string>
+
+    <string name="settings_title">Settings</string>
+    <string name="settings_general">General</string>
+    <string name="settings_account">Account</string>
+    <string name="settings_notifications">Notifications &amp; Push</string>
+    <string name="settings_devices">Devices &amp; Security</string>
+    <string name="settings_developer">Developer Tools</string>
+    <string name="settings_about">About</string>
+    <string name="settings_appearance">Appearance</string>
+    <string name="settings_theme_label">Theme</string>
+    <string name="settings_messages_section">Messages</string>
+    <string name="settings_message_layout">Message Layout</string>
+    <string name="settings_message_spacing">Message Spacing</string>
+    <string name="settings_bubble_own_right">Align Own Messages Right</string>
+    <string name="settings_bubble_own_right_desc">Display your own message bubbles on the right side</string>
+    <string name="settings_auto_load_media">Auto-load Encrypted Images</string>
+    <string name="settings_auto_load_media_desc">Automatically download and decrypt image thumbnails in timeline</string>
+    <string name="settings_room_list_section">Room List</string>
+    <string name="settings_show_room_avatars">Show Room Avatars</string>
+    <string name="settings_sort_by_activity">Sort Rooms by Recent Activity</string>
+    <string name="settings_sort_by_activity_desc">Show most recently active rooms and highlights first</string>
+    <string name="settings_hide_activity">Hide Typing Activity</string>
+    <string name="settings_hide_activity_desc">Do not broadcast typing indicators to rooms</string>
+    <string name="settings_datetime_editor_section">Date, Time &amp; Editor</string>
+    <string name="settings_24h_clock">24-hour Clock</string>
+    <string name="settings_date_format">Date Format</string>
+    <string name="settings_markdown_toolbar">Markdown Quick Toolbar</string>
+    <string name="settings_markdown_toolbar_desc">Show quick formatting chips above the composer</string>
+    <string name="settings_enter_newline">Enter for Newline</string>
+    <string name="settings_profile_section">Profile</string>
+    <string name="settings_display_name_label">Display Name</string>
+    <string name="settings_open_security_center">Open E2EE &amp; 4S Security Center</string>
+    <string name="settings_enable_devtools">Show Developer Tools</string>
+    <string name="settings_enable_devtools_desc">Enable View Event Source JSON and Room ID inspector</string>
+
+    <string name="room_settings_title">Room Settings</string>
+    <string name="room_settings_members">Members</string>
+    <string name="room_settings_update_topic">Update Topic</string>
 </resources>

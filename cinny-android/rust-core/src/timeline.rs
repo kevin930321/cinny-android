@@ -32,6 +32,39 @@ pub trait TimelineListener: Send + Sync {
     fn on_timeline_updated(&self, room_id: String, messages: Vec<TimelineMessage>);
 }
 
+#[uniffi::export(callback_interface)]
+pub trait TypingListener: Send + Sync {
+    fn on_typing_users(&self, room_id: String, display_names: Vec<String>);
+}
+
+pub fn subscribe_room_typing_loop(
+    room: Room,
+    own_user_id: String,
+    listener: Box<dyn TypingListener>,
+) -> tokio::task::JoinHandle<()> {
+    let listener: Arc<dyn TypingListener> = Arc::from(listener);
+    let room_id = room.room_id().to_string();
+    let (guard, mut rx) = room.subscribe_to_typing_notifications();
+
+    tokio::spawn(async move {
+        let _drop_guard = guard;
+        while let Ok(user_ids) = rx.recv().await {
+            let mut names = Vec::with_capacity(user_ids.len());
+            for uid in user_ids {
+                if uid.as_str() == own_user_id {
+                    continue;
+                }
+                let display = match room.get_member_no_sync(&uid).await {
+                    Ok(Some(member)) => member.name().to_string(),
+                    _ => uid.to_string(),
+                };
+                names.push(display);
+            }
+            listener.on_typing_users(room_id.clone(), names);
+        }
+    })
+}
+
 pub struct ActiveRoomTimeline {
     room: Room,
     own_user_id: String,
@@ -409,6 +442,10 @@ fn map_event_item(
         _ => MessageDeliveryStatus::Sent,
     };
 
+    let raw_json = event
+        .original_json()
+        .map(|raw| raw.json().get().to_string());
+
     TimelineMessage {
         event_id,
         sender_id,
@@ -429,6 +466,7 @@ fn map_event_item(
         attachment,
         reactions,
         delivery_status,
+        raw_json,
     }
 }
 

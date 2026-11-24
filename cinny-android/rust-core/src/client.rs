@@ -22,20 +22,23 @@ use crate::{
         VerificationRegistry,
     },
     error::CinnyError,
-    media::download_media_to_cache,
+    media::{download_media_to_cache, download_mxc_thumbnail},
     models::{
-        CinnyAuthSession, DeviceSummary, HomeserverLoginCapabilities, PushNotificationSummary,
-        RoomMemberSummary, RoomSummary, SecretBackupStatus, SpaceHierarchyEntry, SpaceNode,
-        SsoProviderInfo, SyncConnectionState, TimelineMessage,
+        CinnyAuthSession, DeviceSummary, HomeserverLoginCapabilities, PublicRoomEntry,
+        PushNotificationSummary, RoomMemberSummary, RoomNotificationLevel, RoomSummary,
+        SecretBackupStatus, SpaceHierarchyEntry, SpaceNode, SsoProviderInfo, SyncConnectionState,
+        TimelineMessage, UserProfileInfo,
     },
     push::{process_push_event, register_http_pusher},
     spaces::{
         accept_invite, browse_space_hierarchy, build_space_hierarchy_from_items, create_room,
-        invite_user_to_room, join_room_by_id_or_alias, leave_room, list_room_members, parse_room_id,
+        create_space, get_room_notification_level, invite_user_to_room, join_room_by_id_or_alias,
+        leave_room, list_room_members, parse_room_id, search_public_rooms,
+        set_room_notification_level, update_room_name, update_room_topic,
     },
     timeline::{
-        open_room_timeline, open_thread_timeline, SharedThreadTimelineMap, SharedTimelineMap,
-        TimelineListener,
+        open_room_timeline, open_thread_timeline, subscribe_room_typing_loop,
+        SharedThreadTimelineMap, SharedTimelineMap, TimelineListener, TypingListener,
     },
 };
 
@@ -109,6 +112,7 @@ pub struct CinnyClient {
     store_subpath: String,
     timelines: SharedTimelineMap,
     thread_timelines: SharedThreadTimelineMap,
+    typing_tasks: Mutex<HashMap<String, tokio::task::JoinHandle<()>>>,
     verification_registry: Arc<VerificationRegistry>,
     sync_service: Mutex<Option<Arc<SyncService>>>,
     sync_tasks: Mutex<Vec<tokio::task::JoinHandle<()>>>,
@@ -162,6 +166,7 @@ impl CinnyClient {
             store_subpath,
             timelines: Arc::new(Mutex::new(HashMap::new())),
             thread_timelines: Arc::new(Mutex::new(HashMap::new())),
+            typing_tasks: Mutex::new(HashMap::new()),
             verification_registry,
             sync_service: Mutex::new(None),
             sync_tasks: Mutex::new(Vec::new()),
@@ -203,6 +208,7 @@ impl CinnyClient {
             store_subpath,
             timelines: Arc::new(Mutex::new(HashMap::new())),
             thread_timelines: Arc::new(Mutex::new(HashMap::new())),
+            typing_tasks: Mutex::new(HashMap::new()),
             verification_registry,
             sync_service: Mutex::new(None),
             sync_tasks: Mutex::new(Vec::new()),
@@ -253,6 +259,7 @@ impl CinnyClient {
             store_subpath: session.sqlite_store_subpath,
             timelines: Arc::new(Mutex::new(HashMap::new())),
             thread_timelines: Arc::new(Mutex::new(HashMap::new())),
+            typing_tasks: Mutex::new(HashMap::new()),
             verification_registry,
             sync_service: Mutex::new(None),
             sync_tasks: Mutex::new(Vec::new()),
@@ -280,6 +287,45 @@ impl CinnyClient {
 
     pub fn current_user_id(&self) -> Option<String> {
         self.inner.user_id().map(|u| u.to_string())
+    }
+
+    pub async fn get_own_profile(&self) -> Result<UserProfileInfo, CinnyError> {
+        let user_id = self
+            .inner
+            .user_id()
+            .map(|u| u.to_string())
+            .ok_or_else(|| CinnyError::Authentication {
+                detail: "No active user session".to_string(),
+            })?;
+        let account = self.inner.account();
+        let display_name = account.get_display_name().await.ok().flatten();
+        let avatar_mxc = account
+            .get_avatar_url()
+            .await
+            .ok()
+            .flatten()
+            .map(|u| u.to_string());
+        Ok(UserProfileInfo {
+            user_id,
+            display_name,
+            avatar_mxc,
+            homeserver_url: self.inner.homeserver().to_string(),
+            device_id: self.inner.device_id().map(|d| d.to_string()),
+        })
+    }
+
+    pub async fn set_display_name(&self, display_name: Option<String>) -> Result<(), CinnyError> {
+        let clean = display_name
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty());
+        self.inner
+            .account()
+            .set_display_name(clean)
+            .await
+            .map_err(|e| CinnyError::Network {
+                detail: format!("Failed to update display name: {e}"),
+            })
     }
 
     pub async fn logout(&self) -> Result<(), CinnyError> {
@@ -408,6 +454,10 @@ impl CinnyClient {
         for task in guard.drain(..) {
             task.abort();
         }
+        let mut typing_guard = self.typing_tasks.lock().await;
+        for (_, handle) in typing_guard.drain() {
+            handle.abort();
+        }
     }
 
     pub async fn subscribe_room_timeline(
@@ -433,6 +483,37 @@ impl CinnyClient {
             .lock()
             .await
             .insert(room_id, Arc::new(active));
+        Ok(())
+    }
+
+    pub async fn close_room_timeline(&self, room_id: String) {
+        self.timelines.lock().await.remove(&room_id);
+        if let Some(handle) = self.typing_tasks.lock().await.remove(&room_id) {
+            handle.abort();
+        }
+    }
+
+    pub async fn subscribe_room_typing(
+        &self,
+        room_id: String,
+        listener: Box<dyn TypingListener>,
+    ) -> Result<(), CinnyError> {
+        let parsed = parse_room_id(&room_id)?;
+        let room = self
+            .inner
+            .get_room(&parsed)
+            .ok_or_else(|| CinnyError::RoomNotFound {
+                room_id: room_id.clone(),
+            })?;
+        let own_user = self
+            .inner
+            .user_id()
+            .map(|u| u.to_string())
+            .unwrap_or_default();
+        let handle = subscribe_room_typing_loop(room, own_user, listener);
+        if let Some(prev) = self.typing_tasks.lock().await.insert(room_id, handle) {
+            prev.abort();
+        }
         Ok(())
     }
 
@@ -512,6 +593,15 @@ impl CinnyClient {
         cache_dir: String,
     ) -> Result<String, CinnyError> {
         download_media_to_cache(&self.inner, &media_source_json, &filename, &cache_dir).await
+    }
+
+    pub async fn download_mxc_thumbnail(
+        &self,
+        mxc_url: String,
+        size: u32,
+        cache_dir: String,
+    ) -> Result<String, CinnyError> {
+        download_mxc_thumbnail(&self.inner, &mxc_url, size, &cache_dir).await
     }
 
     pub async fn edit_markdown_message(
@@ -602,6 +692,55 @@ impl CinnyClient {
             invite_user_ids,
         )
         .await
+    }
+
+    pub async fn create_space(
+        &self,
+        name: String,
+        topic: Option<String>,
+        is_public: bool,
+    ) -> Result<String, CinnyError> {
+        create_space(&self.inner, name, topic, is_public).await
+    }
+
+    pub async fn search_public_rooms(
+        &self,
+        server: Option<String>,
+        search_term: Option<String>,
+        limit: u32,
+    ) -> Result<Vec<PublicRoomEntry>, CinnyError> {
+        search_public_rooms(&self.inner, server, search_term, limit).await
+    }
+
+    pub async fn update_room_name(
+        &self,
+        room_id: String,
+        name: String,
+    ) -> Result<(), CinnyError> {
+        update_room_name(&self.inner, &room_id, name).await
+    }
+
+    pub async fn update_room_topic(
+        &self,
+        room_id: String,
+        topic: String,
+    ) -> Result<(), CinnyError> {
+        update_room_topic(&self.inner, &room_id, topic).await
+    }
+
+    pub async fn get_room_notification_level(
+        &self,
+        room_id: String,
+    ) -> Result<RoomNotificationLevel, CinnyError> {
+        get_room_notification_level(&self.inner, &room_id).await
+    }
+
+    pub async fn set_room_notification_level(
+        &self,
+        room_id: String,
+        level: RoomNotificationLevel,
+    ) -> Result<(), CinnyError> {
+        set_room_notification_level(&self.inner, &room_id, level).await
     }
 
     pub async fn join_room(&self, room_id_or_alias: String) -> Result<String, CinnyError> {
