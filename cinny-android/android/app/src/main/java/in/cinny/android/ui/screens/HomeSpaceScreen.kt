@@ -377,7 +377,7 @@ private fun RoomListRow(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
-            .clickable(enabled = room.category != RoomCategory.Invited, onClick = onClick)
+            .clickable(enabled = room.category != RoomCategory.INVITED, onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -406,7 +406,7 @@ private fun RoomListRow(
                 )
             }
         }
-        if (room.category == RoomCategory.Invited) {
+        if (room.category == RoomCategory.INVITED) {
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 TextButton(onClick = onAcceptInvite) { Text("Join") }
                 TextButton(onClick = onDeclineInvite) { Text("Decline") }

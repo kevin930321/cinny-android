@@ -21,7 +21,7 @@ class CinnyViewModel(application: Application) : AndroidViewModel(application) {
             return rooms.filter { room ->
                 val matchesSpace = when (selectedSpaceId) {
                     null -> true
-                    "dm" -> room.category == RoomCategory.DirectMessage
+                    "dm" -> room.category == RoomCategory.DIRECT_MESSAGE
                     else -> room.parentSpaceIds.contains(selectedSpaceId)
                 }
                 val matchesQuery = trimmed.isEmpty() ||

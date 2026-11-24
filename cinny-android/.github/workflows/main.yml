@@ -34,17 +34,20 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Set up Android SDK & NDK
+        uses: android-actions/setup-android@v4
+        with:
+          log-accepted-android-sdk-licenses: false
+          packages: platform-tools platforms;android-35 build-tools;35.0.0 ndk;27.2.12479018
 
-      - name: Install Android Platform 35 & NDK
+      - name: Configure ANDROID_NDK_HOME
         run: |
-          yes | sdkmanager --licenses >/dev/null 2>&1 || true
-          sdkmanager \
-            "platforms;android-35" \
-            "build-tools;35.0.0" \
-            "ndk;${NDK_VERSION}"
-          echo "ANDROID_NDK_HOME=${ANDROID_HOME}/ndk/${NDK_VERSION}" >> "$GITHUB_ENV"
+          NDK_PATH="${ANDROID_HOME}/ndk/${NDK_VERSION}"
+          if [ ! -d "$NDK_PATH" ]; then
+            echo "Expected NDK directory not found at $NDK_PATH" >&2
+            exit 1
+          fi
+          echo "ANDROID_NDK_HOME=$NDK_PATH" >> "$GITHUB_ENV"
 
       - name: Set up Rust toolchain & Android targets
         uses: dtolnay/rust-toolchain@stable
