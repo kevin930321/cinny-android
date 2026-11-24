@@ -28,7 +28,7 @@ pub async fn send_media_attachment(
     room.send_attachment(&safe_name, &parsed_mime, bytes, config)
         .await
         .map_err(|e| CinnyError::Network {
-            message: format!("Attachment upload failed: {e}"),
+            detail: format!("Attachment upload failed: {e}"),
         })?;
     Ok(())
 }
@@ -43,12 +43,12 @@ pub async fn download_media_to_cache(
 ) -> Result<String, CinnyError> {
     let source: MediaSource =
         serde_json::from_str(media_source_json).map_err(|e| CinnyError::InvalidInput {
-            message: format!("Invalid MediaSource JSON: {e}"),
+            detail: format!("Invalid MediaSource JSON: {e}"),
         })?;
 
     let media_dir = PathBuf::from(cache_dir).join("media_cache");
     std::fs::create_dir_all(&media_dir).map_err(|e| CinnyError::Storage {
-        message: format!("Failed to create media cache directory: {e}"),
+        detail: format!("Failed to create media cache directory: {e}"),
     })?;
 
     let hash_prefix = fnv1a_hex(media_source_json.as_bytes());
@@ -68,11 +68,11 @@ pub async fn download_media_to_cache(
         .get_media_content(&request, true)
         .await
         .map_err(|e| CinnyError::Network {
-            message: format!("Failed to fetch or decrypt media: {e}"),
+            detail: format!("Failed to fetch or decrypt media: {e}"),
         })?;
 
     std::fs::write(&target_path, &bytes).map_err(|e| CinnyError::Storage {
-        message: format!("Failed to write cached media file: {e}"),
+        detail: format!("Failed to write cached media file: {e}"),
     })?;
 
     Ok(target_path.to_string_lossy().to_string())

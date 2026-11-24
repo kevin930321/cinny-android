@@ -50,7 +50,7 @@ pub async fn open_room_timeline(
     listener: Box<dyn TimelineListener>,
 ) -> Result<ActiveRoomTimeline, CinnyError> {
     let timeline = Arc::new(room.timeline().await.map_err(|e| CinnyError::Network {
-        message: format!("Failed to initialize room timeline: {e}"),
+        detail: format!("Failed to initialize room timeline: {e}"),
     })?);
 
     let (initial_items, mut stream) = timeline.subscribe().await;
@@ -97,7 +97,7 @@ pub async fn open_thread_timeline(
             .build()
             .await
             .map_err(|e| CinnyError::Network {
-                message: format!("Failed to initialize thread timeline: {e}"),
+                detail: format!("Failed to initialize thread timeline: {e}"),
             })?,
     );
 
@@ -136,7 +136,7 @@ impl ActiveThreadTimeline {
         .send(content.into())
         .await
         .map_err(|e| CinnyError::Network {
-            message: format!("Failed to send thread reply: {e}"),
+            detail: format!("Failed to send thread reply: {e}"),
         })?;
         Ok(())
     }
@@ -155,7 +155,7 @@ impl ActiveRoomTimeline {
                 .send_reply(reply_content, parsed_id)
                 .await
                 .map_err(|e| CinnyError::Network {
-                    message: format!("Failed to send reply: {e}"),
+                    detail: format!("Failed to send reply: {e}"),
                 })?;
         } else {
             let content = RoomMessageEventContent::text_markdown(markdown);
@@ -163,7 +163,7 @@ impl ActiveRoomTimeline {
                 .send(content.into())
                 .await
                 .map_err(|e| CinnyError::Network {
-                    message: format!("Failed to send message: {e}"),
+                    detail: format!("Failed to send message: {e}"),
                 })?;
         }
         Ok(())
@@ -190,7 +190,7 @@ impl ActiveRoomTimeline {
             .edit(&item_id, EditedContent::RoomMessage(edited))
             .await
             .map_err(|e| CinnyError::Network {
-                message: format!("Failed to edit message: {e}"),
+                detail: format!("Failed to edit message: {e}"),
             })?;
         Ok(())
     }
@@ -205,7 +205,7 @@ impl ActiveRoomTimeline {
                 .send(reaction)
                 .await
                 .map_err(|e| CinnyError::Network {
-                    message: format!("Reaction failed: {e}"),
+                    detail: format!("Reaction failed: {e}"),
                 })?;
         }
         Ok(())
@@ -221,7 +221,7 @@ impl ActiveRoomTimeline {
             .redact(&parsed_id, reason.as_deref(), None)
             .await
             .map_err(|e| CinnyError::Network {
-                message: format!("Failed to redact event: {e}"),
+                detail: format!("Failed to redact event: {e}"),
             })?;
         Ok(())
     }
@@ -231,7 +231,7 @@ impl ActiveRoomTimeline {
             .paginate_backwards(limit)
             .await
             .map_err(|e| CinnyError::Network {
-                message: format!("Pagination failed: {e}"),
+                detail: format!("Pagination failed: {e}"),
             })
     }
 
@@ -240,7 +240,7 @@ impl ActiveRoomTimeline {
             .mark_as_read(ReceiptType::Read)
             .await
             .map_err(|e| CinnyError::Network {
-                message: format!("Mark as read failed: {e}"),
+                detail: format!("Mark as read failed: {e}"),
             })
     }
 
@@ -505,7 +505,7 @@ fn extract_message_body(msgtype: &MessageType) -> (String, Option<String>) {
 
 pub fn parse_event_id(id: &str) -> Result<OwnedEventId, CinnyError> {
     EventId::parse(id).map_err(|e| CinnyError::InvalidInput {
-        message: format!("Invalid Matrix event ID '{}': {}", id, e),
+        detail: format!("Invalid Matrix event ID '{}': {}", id, e),
     })
 }
 

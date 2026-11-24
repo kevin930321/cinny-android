@@ -111,7 +111,7 @@ pub async fn recover_with_security_key(
     let trimmed = recovery_key.trim();
     if trimmed.is_empty() {
         return Err(CinnyError::InvalidInput {
-            message: "Recovery key cannot be empty".to_string(),
+            detail: "Recovery key cannot be empty".to_string(),
         });
     }
 
@@ -121,7 +121,7 @@ pub async fn recover_with_security_key(
         .recover(trimmed)
         .await
         .map_err(|e| CinnyError::Crypto {
-            message: format!("4S secret recovery failed: {e}"),
+            detail: format!("4S secret recovery failed: {e}"),
         })?;
 
     Ok(get_secret_backup_status(client).await)
@@ -135,7 +135,7 @@ pub async fn enable_recovery_and_backup(client: &Client) -> Result<String, Cinny
         .enable()
         .await
         .map_err(|e| CinnyError::Crypto {
-            message: format!("Failed to enable 4S backup: {e}"),
+            detail: format!("Failed to enable 4S backup: {e}"),
         })?;
     Ok(recovery_key)
 }
@@ -145,7 +145,7 @@ pub async fn list_user_devices(
     user_id: &str,
 ) -> Result<Vec<DeviceSummary>, CinnyError> {
     let parsed_user = OwnedUserId::try_from(user_id).map_err(|e| CinnyError::InvalidInput {
-        message: format!("Invalid Matrix user ID: {e}"),
+        detail: format!("Invalid Matrix user ID: {e}"),
     })?;
     let own_device_id = client.device_id().map(|d| d.to_string());
     let devices = client
@@ -153,7 +153,7 @@ pub async fn list_user_devices(
         .get_user_devices(&parsed_user)
         .await
         .map_err(|e| CinnyError::Crypto {
-            message: format!("Failed to load devices: {e}"),
+            detail: format!("Failed to load devices: {e}"),
         })?;
 
     let mut out = Vec::new();
@@ -178,7 +178,7 @@ pub async fn start_sas_verification(
     listener: Arc<dyn VerificationListener>,
 ) -> Result<String, CinnyError> {
     let parsed_user = OwnedUserId::try_from(user_id).map_err(|e| CinnyError::InvalidInput {
-        message: format!("Invalid Matrix user ID: {e}"),
+        detail: format!("Invalid Matrix user ID: {e}"),
     })?;
     let parsed_device = OwnedDeviceId::from(device_id);
 
@@ -187,17 +187,17 @@ pub async fn start_sas_verification(
         .get_device(&parsed_user, &parsed_device)
         .await
         .map_err(|e| CinnyError::Crypto {
-            message: format!("Device lookup failed: {e}"),
+            detail: format!("Device lookup failed: {e}"),
         })?
         .ok_or_else(|| CinnyError::Crypto {
-            message: "Target device not found".to_string(),
+            detail: "Target device not found".to_string(),
         })?;
 
     let request = device
         .request_verification()
         .await
         .map_err(|e| CinnyError::Crypto {
-            message: format!("Verification request failed: {e}"),
+            detail: format!("Verification request failed: {e}"),
         })?;
 
     let flow_id = request.flow_id().to_string();
@@ -219,11 +219,11 @@ pub async fn accept_incoming_verification(
         .get_pending_request(flow_id)
         .await
         .ok_or_else(|| CinnyError::Crypto {
-            message: format!("Verification request '{flow_id}' not found"),
+            detail: format!("Verification request '{flow_id}' not found"),
         })?;
 
     request.accept().await.map_err(|e| CinnyError::Crypto {
-        message: format!("Failed to accept verification request: {e}"),
+        detail: format!("Failed to accept verification request: {e}"),
     })?;
     Ok(())
 }
@@ -233,11 +233,11 @@ pub async fn confirm_sas(registry: &VerificationRegistry, flow_id: &str) -> Resu
         .get_sas(flow_id)
         .await
         .ok_or_else(|| CinnyError::Crypto {
-            message: format!("Active SAS session '{flow_id}' not found"),
+            detail: format!("Active SAS session '{flow_id}' not found"),
         })?;
 
     sas.confirm().await.map_err(|e| CinnyError::Crypto {
-        message: format!("Failed to confirm SAS match: {e}"),
+        detail: format!("Failed to confirm SAS match: {e}"),
     })?;
     Ok(())
 }
@@ -245,13 +245,13 @@ pub async fn confirm_sas(registry: &VerificationRegistry, flow_id: &str) -> Resu
 pub async fn cancel_sas(registry: &VerificationRegistry, flow_id: &str) -> Result<(), CinnyError> {
     if let Some(sas) = registry.get_sas(flow_id).await {
         sas.cancel().await.map_err(|e| CinnyError::Crypto {
-            message: format!("Failed to cancel SAS verification: {e}"),
+            detail: format!("Failed to cancel SAS verification: {e}"),
         })?;
         return Ok(());
     }
     if let Some(req) = registry.get_pending_request(flow_id).await {
         req.cancel().await.map_err(|e| CinnyError::Crypto {
-            message: format!("Failed to cancel verification request: {e}"),
+            detail: format!("Failed to cancel verification request: {e}"),
         })?;
     }
     Ok(())

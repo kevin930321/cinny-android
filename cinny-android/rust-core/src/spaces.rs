@@ -188,7 +188,7 @@ pub async fn browse_space_hierarchy(
     req.limit = Some(50u32.into());
 
     let resp = client.send(req).await.map_err(|e| CinnyError::Network {
-        message: format!("Failed to fetch Space hierarchy: {e}"),
+        detail: format!("Failed to fetch Space hierarchy: {e}"),
     })?;
 
     let mut entries = Vec::with_capacity(resp.rooms.len());
@@ -235,7 +235,7 @@ pub async fn create_room(
         if !trimmed.is_empty() {
             invites.push(
                 OwnedUserId::try_from(trimmed).map_err(|e| CinnyError::InvalidInput {
-                    message: format!("Invalid invitee '{trimmed}': {e}"),
+                    detail: format!("Invalid invitee '{trimmed}': {e}"),
                 })?,
             );
         }
@@ -259,7 +259,7 @@ pub async fn create_room(
         .create_room(req)
         .await
         .map_err(|e| CinnyError::Network {
-            message: format!("Create room failed: {e}"),
+            detail: format!("Create room failed: {e}"),
         })?;
     Ok(room.room_id().to_string())
 }
@@ -270,14 +270,14 @@ pub async fn join_room_by_id_or_alias(
 ) -> Result<String, CinnyError> {
     let parsed = <&RoomOrAliasId>::try_from(room_id_or_alias.trim()).map_err(|e| {
         CinnyError::InvalidInput {
-            message: format!("Invalid Matrix room ID or alias: {e}"),
+            detail: format!("Invalid Matrix room ID or alias: {e}"),
         }
     })?;
     let room = client
         .join_room_by_id_or_alias(parsed, &[])
         .await
         .map_err(|e| CinnyError::Network {
-            message: format!("Join room failed: {e}"),
+            detail: format!("Join room failed: {e}"),
         })?;
     Ok(room.room_id().to_string())
 }
@@ -290,7 +290,7 @@ pub async fn accept_invite(client: &Client, room_id: &str) -> Result<(), CinnyEr
             room_id: room_id.to_string(),
         })?;
     room.join().await.map_err(|e| CinnyError::Network {
-        message: format!("Accept invite failed: {e}"),
+        detail: format!("Accept invite failed: {e}"),
     })?;
     Ok(())
 }
@@ -303,7 +303,7 @@ pub async fn leave_room(client: &Client, room_id: &str) -> Result<(), CinnyError
             room_id: room_id.to_string(),
         })?;
     room.leave().await.map_err(|e| CinnyError::Network {
-        message: format!("Leave room failed: {e}"),
+        detail: format!("Leave room failed: {e}"),
     })?;
     Ok(())
 }
@@ -315,7 +315,7 @@ pub async fn invite_user_to_room(
 ) -> Result<(), CinnyError> {
     let parsed_room = parse_room_id(room_id)?;
     let parsed_user = OwnedUserId::try_from(user_id.trim()).map_err(|e| CinnyError::InvalidInput {
-        message: format!("Invalid Matrix user ID: {e}"),
+        detail: format!("Invalid Matrix user ID: {e}"),
     })?;
     let room = client
         .get_room(&parsed_room)
@@ -325,7 +325,7 @@ pub async fn invite_user_to_room(
     room.invite_user_by_id(&parsed_user)
         .await
         .map_err(|e| CinnyError::Network {
-            message: format!("Invite failed: {e}"),
+            detail: format!("Invite failed: {e}"),
         })?;
     Ok(())
 }
@@ -344,7 +344,7 @@ pub async fn list_room_members(
         .members(RoomMemberships::ACTIVE)
         .await
         .map_err(|e| CinnyError::Network {
-            message: format!("Failed to load room members: {e}"),
+            detail: format!("Failed to load room members: {e}"),
         })?;
 
     let mut out: Vec<RoomMemberSummary> = members
@@ -429,7 +429,7 @@ async fn extract_space_children(room: &Room) -> Vec<String> {
 
 pub fn parse_room_id(room_id: &str) -> Result<OwnedRoomId, CinnyError> {
     RoomId::parse(room_id).map_err(|e| CinnyError::InvalidInput {
-        message: format!("Invalid Matrix room ID '{}': {}", room_id, e),
+        detail: format!("Invalid Matrix room ID '{}': {}", room_id, e),
     })
 }
 

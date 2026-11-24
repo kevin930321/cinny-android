@@ -55,7 +55,7 @@ pub async fn discover_login_capabilities(
         .get_login_types()
         .await
         .map_err(|e| CinnyError::HomeserverDiscovery {
-            message: format!("Failed to fetch login flows: {e}"),
+            detail: format!("Failed to fetch login flows: {e}"),
         })?;
 
     let mut supports_password = false;
@@ -98,7 +98,7 @@ pub async fn build_sso_login_url(
         .get_sso_login_url(&redirect_url, idp_id.as_deref())
         .await
         .map_err(|e| CinnyError::Authentication {
-            message: format!("Failed to construct SSO redirect URL: {e}"),
+            detail: format!("Failed to construct SSO redirect URL: {e}"),
         })
 }
 
@@ -150,7 +150,7 @@ impl CinnyClient {
             .initial_device_display_name("Cinny Android (Rust)")
             .await
             .map_err(|e| CinnyError::Authentication {
-                message: e.to_string(),
+                detail: e.to_string(),
             })?;
 
         let verification_registry = Arc::new(VerificationRegistry::default());
@@ -191,7 +191,7 @@ impl CinnyClient {
             .initial_device_display_name("Cinny Android (Rust SSO)")
             .await
             .map_err(|e| CinnyError::Authentication {
-                message: format!("SSO token exchange failed: {e}"),
+                detail: format!("SSO token exchange failed: {e}"),
             })?;
 
         let verification_registry = Arc::new(VerificationRegistry::default());
@@ -226,7 +226,7 @@ impl CinnyClient {
         let matrix_session = MatrixSession {
             meta: SessionMeta {
                 user_id: session.user_id.try_into().map_err(|e| CinnyError::InvalidInput {
-                    message: format!("Invalid user ID: {e}"),
+                    detail: format!("Invalid user ID: {e}"),
                 })?,
                 device_id: session.device_id.into(),
             },
@@ -241,7 +241,7 @@ impl CinnyClient {
             .restore_session(matrix_session, RoomLoadSettings::All)
             .await
             .map_err(|e| CinnyError::Storage {
-                message: format!("Failed to restore session: {e}"),
+                detail: format!("Failed to restore session: {e}"),
             })?;
 
         let verification_registry = Arc::new(VerificationRegistry::default());
@@ -265,7 +265,7 @@ impl CinnyClient {
             .matrix_auth()
             .session()
             .ok_or_else(|| CinnyError::Authentication {
-                message: "No active Matrix session".to_string(),
+                detail: "No active Matrix session".to_string(),
             })?;
 
         Ok(CinnyAuthSession {
@@ -289,7 +289,7 @@ impl CinnyClient {
             .logout()
             .await
             .map_err(|e| CinnyError::Network {
-                message: e.to_string(),
+                detail: e.to_string(),
             })?;
         Ok(())
     }
@@ -301,7 +301,7 @@ impl CinnyClient {
             .get_login_types()
             .await
             .map_err(|e| CinnyError::Network {
-                message: e.to_string(),
+                detail: e.to_string(),
             })?;
 
         Ok(types
@@ -572,7 +572,7 @@ impl CinnyClient {
         room.typing_notice(typing)
             .await
             .map_err(|e| CinnyError::Network {
-                message: e.to_string(),
+                detail: e.to_string(),
             })
     }
 
@@ -650,7 +650,7 @@ impl CinnyClient {
             .user_id()
             .map(|u| u.to_string())
             .ok_or_else(|| CinnyError::Authentication {
-                message: "No active user session".to_string(),
+                detail: "No active user session".to_string(),
             })?;
         list_user_devices(&self.inner, &user_id).await
     }

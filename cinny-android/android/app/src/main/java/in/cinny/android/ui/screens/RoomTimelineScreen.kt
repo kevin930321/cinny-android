@@ -381,7 +381,7 @@ private fun TimelineRow(
         ) {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.Baseline
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     text = message.senderName,
@@ -429,6 +429,7 @@ private fun TimelineRow(
         }
 
         Spacer(modifier = Modifier.height(2.dp))
+        val formattedHtml = message.formattedHtml
         if (message.isRedacted) {
             Text(
                 text = message.body,
@@ -436,9 +437,9 @@ private fun TimelineRow(
                 fontStyle = FontStyle.Italic,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-        } else if (!message.formattedHtml.isNullOrBlank()) {
+        } else if (!formattedHtml.isNullOrBlank()) {
             Text(
-                text = AnnotatedString.fromHtml(message.formattedHtml),
+                text = AnnotatedString.fromHtml(formattedHtml),
                 style = MaterialTheme.typography.bodyMedium
             )
         } else {

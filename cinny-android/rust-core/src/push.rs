@@ -30,7 +30,7 @@ pub async fn register_http_pusher(
 ) -> Result<(), CinnyError> {
     if push_key.trim().is_empty() || gateway_url.trim().is_empty() {
         return Err(CinnyError::InvalidInput {
-            message: "Push key and gateway URL are required".to_string(),
+            detail: "Push key and gateway URL are required".to_string(),
         });
     }
 
@@ -51,7 +51,7 @@ pub async fn register_http_pusher(
         .send(request)
         .await
         .map_err(|e| CinnyError::Network {
-            message: format!("Failed to register HTTP pusher: {e}"),
+            detail: format!("Failed to register HTTP pusher: {e}"),
         })?;
     Ok(())
 }
@@ -87,7 +87,7 @@ pub async fn process_push_event(
         .event(&parsed_event, None)
         .await
         .map_err(|e| CinnyError::Network {
-            message: format!("Push event fetch failed: {e}"),
+            detail: format!("Push event fetch failed: {e}"),
         })?;
 
     let mut sender_name = "Matrix User".to_string();
