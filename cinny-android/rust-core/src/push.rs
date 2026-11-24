@@ -1,13 +1,13 @@
 use matrix_sdk::{
     ruma::{
         api::client::push::{
-            set_pusher::v3::Request as SetPusherRequest, HttpPusherData, Pusher, PusherIds,
-            PusherInit, PusherKind,
+            set_pusher::v3::Request as SetPusherRequest, Pusher, PusherIds, PusherInit, PusherKind,
         },
         events::{
             room::message::{MessageType, SyncRoomMessageEvent},
             AnySyncMessageLikeEvent, AnySyncTimelineEvent,
         },
+        push::HttpPusherData,
     },
     Client,
 };

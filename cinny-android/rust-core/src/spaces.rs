@@ -353,6 +353,7 @@ pub async fn list_room_members(
             let power_level = match m.power_level() {
                 UserPowerLevel::Infinite => i64::MAX,
                 UserPowerLevel::Int(v) => i64::from(v),
+                _ => 0,
             };
             RoomMemberSummary {
                 user_id: m.user_id().to_string(),
@@ -370,7 +371,7 @@ async fn extract_latest_event_preview(room: &Room) -> (Option<String>, Option<St
     let Some(latest) = room.latest_event() else {
         return (None, None, 0);
     };
-    let mut ts: u64 = latest.event().timestamp().map(|t| t.into()).unwrap_or(0);
+    let mut ts: u64 = latest.event().timestamp().map(|t| t.0.into()).unwrap_or(0);
     let mut sender = latest.sender_display_name().map(|s| s.to_string());
     if let Ok(matrix_sdk::ruma::events::AnySyncTimelineEvent::MessageLike(
         matrix_sdk::ruma::events::AnySyncMessageLikeEvent::RoomMessage(

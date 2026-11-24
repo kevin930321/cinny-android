@@ -71,7 +71,8 @@ pub fn register_incoming_verification_handler(
                     .await
                     .insert(flow_id.clone(), request.clone());
 
-                if let Some(listener) = registry.global_listener.lock().await.clone() {
+                let listener_opt = registry.global_listener.lock().await.clone();
+                if let Some(listener) = listener_opt {
                     listener.on_phase_changed(VerificationPhase::IncomingRequest {
                         flow_id: flow_id.clone(),
                         other_user_id: ev.sender.to_string(),

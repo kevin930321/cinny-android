@@ -55,7 +55,7 @@ pub async fn open_room_timeline(
 
     let (initial_items, mut stream) = timeline.subscribe().await;
     let room_id = room.room_id().to_string();
-    let listener = Arc::from(listener);
+    let listener: Arc<dyn TimelineListener> = Arc::from(listener);
 
     let initial_messages = map_timeline_items(&initial_items, &own_user_id, None);
     listener.on_timeline_updated(room_id.clone(), initial_messages);
@@ -103,7 +103,7 @@ pub async fn open_thread_timeline(
 
     let (initial_items, mut stream) = timeline.subscribe().await;
     let room_id = room.room_id().to_string();
-    let listener = Arc::from(listener);
+    let listener: Arc<dyn TimelineListener> = Arc::from(listener);
 
     let initial_messages =
         map_timeline_items(&initial_items, &own_user_id, Some(root_event_id.as_str()));
