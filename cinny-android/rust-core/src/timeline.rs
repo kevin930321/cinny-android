@@ -2,13 +2,15 @@ use std::{collections::HashMap, sync::Arc};
 
 use futures_util::StreamExt;
 use matrix_sdk::{
-    room::Room,
+    room::{edit::EditedContent, Room},
     ruma::{
         api::client::receipt::create_receipt::v3::ReceiptType,
         events::{
             reaction::ReactionEventContent,
             relation::Annotation,
-            room::message::{MessageType, RoomMessageEventContentWithoutRelation},
+            room::message::{
+                MessageType, RoomMessageEventContent, RoomMessageEventContentWithoutRelation,
+            },
         },
         EventId, OwnedEventId, UserId,
     },
@@ -129,13 +131,13 @@ pub async fn open_thread_timeline(
 
 impl ActiveThreadTimeline {
     pub async fn send_thread_reply(&self, markdown: String) -> Result<(), CinnyError> {
-        let content = RoomMessageEventContentWithoutRelation::text_markdown(markdown);
-        self.timeline
-            .send(content.into())
-            .await
-            .map_err(|e| CinnyError::Network {
-                message: format!("Failed to send thread reply: {e}"),
-            })?;
+    let content = RoomMessageEventContent::text_markdown(markdown);
+    self.timeline
+        .send(content.into())
+        .await
+        .map_err(|e| CinnyError::Network {
+            message: format!("Failed to send thread reply: {e}"),
+        })?;
         Ok(())
     }
 }
@@ -156,7 +158,7 @@ impl ActiveRoomTimeline {
                     message: format!("Failed to send reply: {e}"),
                 })?;
         } else {
-            let content = RoomMessageEventContentWithoutRelation::text_markdown(markdown);
+            let content = RoomMessageEventContent::text_markdown(markdown);
             self.timeline
                 .send(content.into())
                 .await
@@ -185,7 +187,7 @@ impl ActiveRoomTimeline {
         let item_id = TimelineEventItemId::EventId(parsed_id);
         let edited = RoomMessageEventContentWithoutRelation::text_markdown(new_markdown);
         self.timeline
-            .edit(&item_id, edited.into())
+            .edit(&item_id, EditedContent::RoomMessage(edited))
             .await
             .map_err(|e| CinnyError::Network {
                 message: format!("Failed to edit message: {e}"),
@@ -260,13 +262,16 @@ impl ActiveRoomTimeline {
     }
 }
 
-fn map_timeline_items(
-    items: &[Arc<TimelineItem>],
+fn map_timeline_items<'a, I>(
+    items: I,
     own_user_id: &str,
     thread_root_override: Option<&str>,
-) -> Vec<TimelineMessage> {
+) -> Vec<TimelineMessage>
+where
+    I: IntoIterator<Item = &'a Arc<TimelineItem>>,
+{
     items
-        .iter()
+        .into_iter()
         .filter_map(|item| {
             item.as_event()
                 .map(|ev| map_event_item(ev, own_user_id, thread_root_override))
@@ -282,7 +287,10 @@ fn map_event_item(
     let event_id = event
         .event_id()
         .map(|id| id.to_string())
-        .unwrap_or_else(|| event.identifier().to_string());
+        .unwrap_or_else(|| match event.identifier() {
+            TimelineEventItemId::EventId(id) => id.to_string(),
+            TimelineEventItemId::TransactionId(txn) => txn.to_string(),
+        });
 
     let sender_id = event.sender().to_string();
     let (sender_name, sender_avatar_mxc) = match event.sender_profile() {
@@ -447,14 +455,14 @@ fn map_reply_details(details: &InReplyToDetails) -> ReplyPreview {
     let event_id = details.event_id.to_string();
     match &details.event {
         TimelineDetails::Ready(embedded) => {
-            let sender_name = match embedded.sender_profile() {
+            let sender_name = match &embedded.sender_profile {
                 TimelineDetails::Ready(profile) => profile
                     .display_name
                     .clone()
-                    .unwrap_or_else(|| embedded.sender().to_string()),
-                _ => embedded.sender().to_string(),
+                    .unwrap_or_else(|| embedded.sender.to_string()),
+                _ => embedded.sender.to_string(),
             };
-            let body = match embedded.content() {
+            let body = match &embedded.content {
                 TimelineItemContent::MsgLike(msg_like) => match &msg_like.kind {
                     MsgLikeKind::Message(msg) => extract_message_body(msg.msgtype()).0,
                     MsgLikeKind::Redacted => "Message deleted".to_string(),

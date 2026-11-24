@@ -1,0 +1,1521 @@
+   Compiling cinny_core v0.3.0 (/home/runner/work/cinny-android/cinny-android/cinny-android/rust-core)
+error[E0432]: unresolved imports `matrix_sdk::cross_process_lock::CrossProcessLockConfig`, `matrix_sdk::RoomLoadSettings`
+ --> src/client.rs:7:5
+  |
+7 |     cross_process_lock::CrossProcessLockConfig,
+  |     ^^^^^^^^^^^^^^^^^^^^----------------------
+  |                         |
+  |                         no `CrossProcessLockConfig` in `cross_process_lock`
+8 |     ruma::api::client::session::get_login_types::v3::LoginType,
+9 |     Client, RoomLoadSettings, SessionMeta, SessionTokens,
+  |             ^^^^^^^^^^^^^^^^ no `RoomLoadSettings` in the root
+  |
+help: a similar name exists in the module
+  |
+7 -     cross_process_lock::CrossProcessLockConfig,
+7 +     cross_process_lock::CrossProcessLockGuard,
+  |
+error[E0433]: cannot find `create_room` in `membership`
+ --> src/spaces.rs:7:25
+  |
+7 |             membership::create_room::v3::Request as CreateRoomRequest,
+  |                         ^^^^^^^^^^^ could not find `create_room` in `membership`
+error[E0432]: unresolved imports `matrix_sdk::ruma::api::client::push::set_pusher::v3::PusherData`, `matrix_sdk::ruma::api::client::push::set_pusher::v3::PusherInit`
+ --> src/push.rs:4:35
+  |
+4 |             Pusher, PusherAction, PusherData, PusherIds, PusherInit, Request as SetPusherRequest,
+  |                                   ^^^^^^^^^^             ^^^^^^^^^^ no `PusherInit` in `push::set_pusher::v3`
+  |                                   |
+  |                                   no `PusherData` in `push::set_pusher::v3`
+  |
+help: a similar name exists in the module
+  |
+4 -             Pusher, PusherAction, PusherData, PusherIds, PusherInit, Request as SetPusherRequest,
+4 +             Pusher, PusherAction, PusherData, PusherIds, PusherIds, Request as SetPusherRequest,
+  |
+error[E0603]: struct `Pusher` is private
+   --> src/push.rs:4:13
+    |
+  4 |             Pusher, PusherAction, PusherData, PusherIds, PusherInit, Request as SetPusherRequest,
+    |             ^^^^^^ private struct
+    |
+note: the struct `Pusher` is defined here
+   --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ruma-client-api-0.22.1/src/push/set_pusher.rs:18:23
+    |
+ 18 |     use crate::push::{Pusher, PusherIds};
+    |                       ^^^^^^
+    |
+   ::: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ruma-client-api-0.22.1/src/push.rs:209:49
+    |
+209 | #[cfg_attr(not(ruma_unstable_exhaustive_types), non_exhaustive)]
+    |                                                 -------------- cannot be constructed because it is `#[non_exhaustive]`
+error[E0603]: struct `PusherIds` is private
+   --> src/push.rs:4:47
+    |
+  4 |             Pusher, PusherAction, PusherData, PusherIds, PusherInit, Request as SetPusherRequest,
+    |                                               ^^^^^^^^^ private struct
+    |
+note: the struct `PusherIds` is defined here
+   --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ruma-client-api-0.22.1/src/push/set_pusher.rs:18:31
+    |
+ 18 |     use crate::push::{Pusher, PusherIds};
+    |                               ^^^^^^^^^
+    |
+   ::: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ruma-client-api-0.22.1/src/push.rs:269:49
+    |
+269 | #[cfg_attr(not(ruma_unstable_exhaustive_types), non_exhaustive)]
+    |                                                 -------------- cannot be constructed because it is `#[non_exhaustive]`
+error[E0277]: the trait bound `ActiveRoomTimeline: FfiConverterArc<UniFfiTag>` is not satisfied
+   --> src/client.rs:716:10
+    |
+716 |     ) -> Result<Arc<crate::timeline::ActiveRoomTimeline>, CinnyError> {
+    |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ unsatisfied trait bound
+    |
+help: the trait `FfiConverterArc<UniFfiTag>` is not implemented for `ActiveRoomTimeline`
+   --> src/timeline.rs:33:1
+    |
+ 33 | pub struct ActiveRoomTimeline {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+help: the trait `FfiConverterArc<UT>` is implemented for `CinnyClient`
+   --> src/client.rs:102:10
+    |
+102 | #[derive(uniffi::Object)]
+    |          ^^^^^^^^^^^^^^
+    = note: required for `Arc<ActiveRoomTimeline>` to implement `FfiConverter<UniFfiTag>`
+    = note: required for `Arc<ActiveRoomTimeline>` to implement `uniffi::TypeId<UniFfiTag>`
+    = note: 1 redundant requirement hidden
+    = note: required for `Result<Arc<ActiveRoomTimeline>, CinnyError>` to implement `uniffi::TypeId<UniFfiTag>`
+    = note: this error originates in the derive macro `uniffi::Object` (in Nightly builds, run with -Z macro-backtrace for more info)
+error[E0277]: the trait bound `ActiveRoomTimeline: FfiConverterArc<UniFfiTag>` is not satisfied
+   --> src/client.rs:716:10
+    |
+716 |     ) -> Result<Arc<crate::timeline::ActiveRoomTimeline>, CinnyError> {
+    |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ unsatisfied trait bound
+    |
+help: the trait `FfiConverterArc<UniFfiTag>` is not implemented for `ActiveRoomTimeline`
+   --> src/timeline.rs:33:1
+    |
+ 33 | pub struct ActiveRoomTimeline {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+help: the trait `FfiConverterArc<UT>` is implemented for `CinnyClient`
+   --> src/client.rs:102:10
+    |
+102 | #[derive(uniffi::Object)]
+    |          ^^^^^^^^^^^^^^
+    = note: required for `Arc<ActiveRoomTimeline>` to implement `FfiConverter<UniFfiTag>`
+    = note: required for `Arc<ActiveRoomTimeline>` to implement `uniffi::TypeId<UniFfiTag>`
+    = note: 1 redundant requirement hidden
+    = note: required for `Result<Arc<ActiveRoomTimeline>, error::CinnyError>` to implement `uniffi::TypeId<UniFfiTag>`
+    = note: this error originates in the derive macro `uniffi::Object` (in Nightly builds, run with -Z macro-backtrace for more info)
+error[E0599]: no method named `cross_process_store_config` found for struct `matrix_sdk::ClientBuilder` in the current scope
+   --> src/client.rs:140:14
+    |
+137 |         let client = Client::builder()
+138 |             .homeserver_url(&homeserver_url)
+139 |             .sqlite_store(&data_dir, sqlite_passphrase.as_deref())
+140 |             .cross_process_store_config(CrossProcessLockConfig::SingleProcess)
+    |              ^^^^^^^^^^^^^^^^^^^^^^^^^^ method not found in `matrix_sdk::ClientBuilder`
+warning: method call on a diverging inference variable
+   --> src/client.rs:145:14
+    |
+145 |             .matrix_auth()
+    |              ^^^^^^^^^^^
+    |
+    = help: consider providing a type annotation
+    = warning: this was previously accepted by the compiler but is being phased out; it will become a hard error in a future release!
+    = note: for more information, see issue #156047 <https://github.com/rust-lang/rust/issues/156047>
+    = note: `#[warn(method_call_on_diverging_infer_var)]` (part of `#[warn(future_incompatible)]`) on by default
+error[E0599]: no method named `matrix_auth` found for type `!` in the current scope
+   --> src/client.rs:145:14
+    |
+144 |         client
+145 |             .matrix_auth()
+    |              ^^^^^^^^^^^ method not found in `!`
+error[E0308]: mismatched types
+   --> src/client.rs:154:48
+    |
+154 |         register_incoming_verification_handler(&client, Arc::clone(&verification_registry));
+    |         -------------------------------------- ^^^^^^^ expected `&Client`, found `&!`
+    |         |
+    |         arguments to this function are incorrect
+    |
+    = note: expected reference `&matrix_sdk::Client`
+               found reference `&!`
+note: function defined here
+   --> src/crypto.rs:51:8
+    |
+ 51 | pub fn register_incoming_verification_handler(
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 52 |     client: &Client,
+    |     ---------------
+warning: unreachable expression
+   --> src/client.rs:158:13
+    |
+157 |             inner: client,
+    |                    ------ any code following this expression is unreachable
+158 |             data_dir,
+    |             ^^^^^^^^ unreachable expression
+    |
+    = note: `#[warn(unreachable_code)]` (part of `#[warn(unused)]`) on by default
+error[E0599]: no method named `cross_process_store_config` found for struct `matrix_sdk::ClientBuilder` in the current scope
+   --> src/client.rs:181:14
+    |
+178 |         let client = Client::builder()
+179 |             .homeserver_url(&homeserver_url)
+180 |             .sqlite_store(&data_dir, sqlite_passphrase.as_deref())
+181 |             .cross_process_store_config(CrossProcessLockConfig::SingleProcess)
+    |              ^^^^^^^^^^^^^^^^^^^^^^^^^^ method not found in `matrix_sdk::ClientBuilder`
+warning: method call on a diverging inference variable
+   --> src/client.rs:186:14
+    |
+186 |             .matrix_auth()
+    |              ^^^^^^^^^^^
+    |
+    = help: consider providing a type annotation
+    = warning: this was previously accepted by the compiler but is being phased out; it will become a hard error in a future release!
+    = note: for more information, see issue #156047 <https://github.com/rust-lang/rust/issues/156047>
+error[E0599]: no method named `matrix_auth` found for type `!` in the current scope
+   --> src/client.rs:186:14
+    |
+185 |         client
+186 |             .matrix_auth()
+    |              ^^^^^^^^^^^ method not found in `!`
+error[E0308]: mismatched types
+   --> src/client.rs:195:48
+    |
+195 |         register_incoming_verification_handler(&client, Arc::clone(&verification_registry));
+    |         -------------------------------------- ^^^^^^^ expected `&Client`, found `&!`
+    |         |
+    |         arguments to this function are incorrect
+    |
+    = note: expected reference `&matrix_sdk::Client`
+               found reference `&!`
+note: function defined here
+   --> src/crypto.rs:51:8
+    |
+ 51 | pub fn register_incoming_verification_handler(
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 52 |     client: &Client,
+    |     ---------------
+warning: unreachable expression
+   --> src/client.rs:199:13
+    |
+198 |             inner: client,
+    |                    ------ any code following this expression is unreachable
+199 |             data_dir,
+    |             ^^^^^^^^ unreachable expression
+error[E0599]: no method named `cross_process_store_config` found for struct `matrix_sdk::ClientBuilder` in the current scope
+   --> src/client.rs:219:14
+    |
+216 |         let client = Client::builder()
+217 |             .homeserver_url(&session.homeserver_url)
+218 |             .sqlite_store(&data_dir, sqlite_passphrase.as_deref())
+219 |             .cross_process_store_config(CrossProcessLockConfig::SingleProcess)
+    |              ^^^^^^^^^^^^^^^^^^^^^^^^^^ method not found in `matrix_sdk::ClientBuilder`
+warning: method call on a diverging inference variable
+   --> src/client.rs:237:14
+    |
+237 |             .matrix_auth()
+    |              ^^^^^^^^^^^
+    |
+    = help: consider providing a type annotation
+    = warning: this was previously accepted by the compiler but is being phased out; it will become a hard error in a future release!
+    = note: for more information, see issue #156047 <https://github.com/rust-lang/rust/issues/156047>
+error[E0599]: no method named `matrix_auth` found for type `!` in the current scope
+   --> src/client.rs:237:14
+    |
+236 |         client
+237 |             .matrix_auth()
+    |              ^^^^^^^^^^^ method not found in `!`
+error[E0308]: mismatched types
+   --> src/client.rs:245:48
+    |
+245 |         register_incoming_verification_handler(&client, Arc::clone(&verification_registry));
+    |         -------------------------------------- ^^^^^^^ expected `&Client`, found `&!`
+    |         |
+    |         arguments to this function are incorrect
+    |
+    = note: expected reference `&matrix_sdk::Client`
+               found reference `&!`
+note: function defined here
+   --> src/crypto.rs:51:8
+    |
+ 51 | pub fn register_incoming_verification_handler(
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 52 |     client: &Client,
+    |     ---------------
+warning: unreachable expression
+   --> src/client.rs:249:13
+    |
+248 |             inner: client,
+    |                    ------ any code following this expression is unreachable
+249 |             data_dir,
+    |             ^^^^^^^^ unreachable expression
+error[E0277]: `{async block@...}` cannot be unpinned
+    --> src/client.rs:352:52
+     |
+ 352 |                     while let Some(diffs) = stream.next().await {
+     |                                                    ^^^^ within `__Origin<'_, Chain<Once<Ready<Vec<VectorDiff<RoomListItem>>>>, _>, _>`, the trait `Unpin` is not implemented for `{async block@...}`
+     |
+     = note: consider using the `pin!` macro
+             consider using `Box::pin` if you need to access the pinned value outside of the current scope
+note: required because it appears within the type `__Origin<'_, Chain<Once<Ready<Vec<VectorDiff<RoomListItem>>>>, _>, _>`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pin-project-lite-0.2.18/src/lib.rs:1253:21
+     |
+1253 |           $vis struct __Origin<'__pin, $($impl_generics)*>
+     |                       ^^^^^^^^
+     |
+    ::: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/async-stream-0.3.6/src/async_stream.rs:9:1
+     |
+   9 | / pin_project! {
+  10 | |     #[doc(hidden)]
+  11 | |     #[derive(Debug)]
+  12 | |     pub struct AsyncStream<T, U> {
+...    |
+  18 | | }
+     | |_- in this macro invocation
+     = note: required for `AsyncStream<Chain<Once<Ready<Vec<VectorDiff<RoomListItem>>>>, _>, _>` to implement `Unpin`
+note: required because it appears within the type `__Origin<'_, AsyncStream<Chain<Once<Ready<Vec<_>>>, _>, _>>`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pin-project-lite-0.2.18/src/lib.rs:1253:21
+     |
+1253 |           $vis struct __Origin<'__pin, $($impl_generics)*>
+     |                       ^^^^^^^^
+     |
+    ::: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/async-rx-0.1.3/src/lib.rs:248:1
+     |
+ 248 | / pin_project! {
+ 249 | |     /// Stream adapter produced by [`StreamExt::switch`].
+ 250 | |     pub struct Switch<S: Stream> {
+ 251 | |         #[pin]
+...    |
+ 256 | | }
+     | |_- in this macro invocation
+     = note: required for `Switch<AsyncStream<Chain<Once<Ready<Vec<VectorDiff<_>>>>, _>, _>>` to implement `Unpin`
+note: required because it appears within the type `impl Stream<Item = Vec<VectorDiff<RoomListItem>>> + '_`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/matrix-sdk-ui-0.16.1/src/room_list_service/room_list.rs:165:11
+     |
+ 165 |     ) -> (impl Stream<Item = Vec<VectorDiff<RoomListItem>>> + '_, RoomListDynamicEntriesController)
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: required because it appears within the type `impl Stream<Item = Vec<VectorDiff<RoomListItem>>> + '_`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/matrix-sdk-ui-0.16.1/src/room_list_service/room_list.rs:146:11
+     |
+ 146 |     ) -> (impl Stream<Item = Vec<VectorDiff<RoomListItem>>> + '_, RoomListDynamicEntriesController)
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: required by a bound in `futures_util::StreamExt::next`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-util-0.3.34/src/stream/stream/mod.rs:275:15
+     |
+ 249 | pub trait StreamExt: Stream {
+...
+ 273 |     fn next(&mut self) -> Next<'_, Self>
+ 274 |     where
+ 275 |         Self: Unpin,
+     |               ^^^^^ required by this bound in `StreamExt::next`
+     = note: the full name for the type has been written to '/home/runner/work/cinny-android/cinny-android/cinny-android/rust-core/target/debug/build/cinny_core/5441533b1df4ab93/out/cinny_core.long-type-4114110110383095063.txt'
+     = note: consider using `--verbose` to print the full type name to the console
+     = note: this error originates in the macro `$crate::__pin_project_make_unpin_impl` which comes from the expansion of the macro `pin_project` (in Nightly builds, run with -Z macro-backtrace for more info)
+error[E0277]: `{async block@...}` cannot be unpinned
+    --> src/client.rs:352:52
+     |
+ 352 |                     while let Some(diffs) = stream.next().await {
+     |                                                    ^^^^ within `__Origin<'_, Chain<Once<Ready<Vec<VectorDiff<RoomListItem>>>>, _>, _>`, the trait `Unpin` is not implemented for `{async block@...}`
+     |
+     = note: consider using the `pin!` macro
+             consider using `Box::pin` if you need to access the pinned value outside of the current scope
+note: required because it appears within the type `__Origin<'_, Chain<Once<Ready<Vec<VectorDiff<RoomListItem>>>>, _>, _>`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pin-project-lite-0.2.18/src/lib.rs:1253:21
+     |
+1253 |           $vis struct __Origin<'__pin, $($impl_generics)*>
+     |                       ^^^^^^^^
+     |
+    ::: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/async-stream-0.3.6/src/async_stream.rs:9:1
+     |
+   9 | / pin_project! {
+  10 | |     #[doc(hidden)]
+  11 | |     #[derive(Debug)]
+  12 | |     pub struct AsyncStream<T, U> {
+...    |
+  18 | | }
+     | |_- in this macro invocation
+     = note: required for `AsyncStream<Chain<Once<Ready<Vec<VectorDiff<RoomListItem>>>>, _>, _>` to implement `Unpin`
+note: required because it appears within the type `__Origin<'_, AsyncStream<Chain<Once<Ready<Vec<_>>>, _>, _>>`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pin-project-lite-0.2.18/src/lib.rs:1253:21
+     |
+1253 |           $vis struct __Origin<'__pin, $($impl_generics)*>
+     |                       ^^^^^^^^
+     |
+    ::: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/async-rx-0.1.3/src/lib.rs:248:1
+     |
+ 248 | / pin_project! {
+ 249 | |     /// Stream adapter produced by [`StreamExt::switch`].
+ 250 | |     pub struct Switch<S: Stream> {
+ 251 | |         #[pin]
+...    |
+ 256 | | }
+     | |_- in this macro invocation
+     = note: required for `Switch<AsyncStream<Chain<Once<Ready<Vec<VectorDiff<_>>>>, _>, _>>` to implement `Unpin`
+note: required because it appears within the type `impl Stream<Item = Vec<VectorDiff<RoomListItem>>> + '_`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/matrix-sdk-ui-0.16.1/src/room_list_service/room_list.rs:165:11
+     |
+ 165 |     ) -> (impl Stream<Item = Vec<VectorDiff<RoomListItem>>> + '_, RoomListDynamicEntriesController)
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: required because it appears within the type `impl Stream<Item = Vec<VectorDiff<RoomListItem>>> + '_`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/matrix-sdk-ui-0.16.1/src/room_list_service/room_list.rs:146:11
+     |
+ 146 |     ) -> (impl Stream<Item = Vec<VectorDiff<RoomListItem>>> + '_, RoomListDynamicEntriesController)
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: required by a bound in `futures_util::StreamExt::next`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-util-0.3.34/src/stream/stream/mod.rs:275:15
+     |
+ 249 | pub trait StreamExt: Stream {
+...
+ 273 |     fn next(&mut self) -> Next<'_, Self>
+ 274 |     where
+ 275 |         Self: Unpin,
+     |               ^^^^^ required by this bound in `StreamExt::next`
+     = note: the full name for the type has been written to '/home/runner/work/cinny-android/cinny-android/cinny-android/rust-core/target/debug/build/cinny_core/e14655a3ba67636e/out/cinny_core-e14655a3ba67636e.long-type-13079908549974425467.txt'
+     = note: consider using `--verbose` to print the full type name to the console
+     = note: this error originates in the macro `$crate::__pin_project_make_unpin_impl` which comes from the expansion of the macro `pin_project` (in Nightly builds, run with -Z macro-backtrace for more info)
+error[E0277]: `{async block@...}` cannot be unpinned
+    --> src/client.rs:352:52
+     |
+ 352 |                     while let Some(diffs) = stream.next().await {
+     |                                                    ^^^^ within `__Origin<'_, Vec<VectorDiff<RoomListItem>>, {async block@...}>`, the trait `Unpin` is not implemented for `{async block@...}`
+     |
+     = note: consider using the `pin!` macro
+             consider using `Box::pin` if you need to access the pinned value outside of the current scope
+note: required because it appears within the type `__Origin<'_, Vec<VectorDiff<RoomListItem>>, {async block@...}>`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pin-project-lite-0.2.18/src/lib.rs:1253:21
+     |
+1253 |           $vis struct __Origin<'__pin, $($impl_generics)*>
+     |                       ^^^^^^^^
+     |
+    ::: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/async-stream-0.3.6/src/async_stream.rs:9:1
+     |
+   9 | / pin_project! {
+  10 | |     #[doc(hidden)]
+  11 | |     #[derive(Debug)]
+  12 | |     pub struct AsyncStream<T, U> {
+...    |
+  18 | | }
+     | |_- in this macro invocation
+     = note: required for `AsyncStream<Vec<VectorDiff<RoomListItem>>, {async block@...}>` to implement `Unpin`
+note: required because it appears within the type `impl Stream<Item = Vec<VectorDiff<RoomListItem>>>`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/matrix-sdk-ui-0.16.1/src/room_list_service/room_list.rs:230:6
+     |
+ 230 | ) -> impl Stream<Item = Vec<VectorDiff<RoomListItem>>> {
+     |      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: required because it appears within the type `__Origin<'_, impl Stream<Item = Vec<VectorDiff<RoomListItem>>>>`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pin-project-lite-0.2.18/src/lib.rs:1253:21
+     |
+1253 |           $vis struct __Origin<'__pin, $($impl_generics)*>
+     |                       ^^^^^^^^
+     |
+    ::: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/eyeball-im-util-0.10.0/src/vector/filter.rs:129:1
+     |
+ 129 | / pin_project! {
+ 130 | |     #[project = FilterImplProj]
+ 131 | |     pub(super) struct FilterImpl<S> {
+ 132 | |         #[pin]
+...    |
+ 144 | | }
+     | |_- in this macro invocation
+     = note: required for `FilterImpl<impl Stream<Item = Vec<VectorDiff<RoomListItem>>>>` to implement `Unpin`
+note: required because it appears within the type `__Origin<'_, impl Stream<Item = Vec<VectorDiff<RoomListItem>>>, _>`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pin-project-lite-0.2.18/src/lib.rs:1253:21
+     |
+1253 |           $vis struct __Origin<'__pin, $($impl_generics)*>
+     |                       ^^^^^^^^
+     |
+    ::: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/eyeball-im-util-0.10.0/src/vector/filter.rs:17:1
+     |
+  17 | / pin_project! {
+  18 | |     /// A [`VectorDiff`] stream adapter that presents a filtered view of the
+  19 | |     /// underlying [`ObservableVector`]s items.
+  20 | |     ///
+...    |
+  27 | | }
+     | |_- in this macro invocation
+     = note: required for `Filter<impl Stream<Item = Vec<VectorDiff<RoomListItem>>>, Box<_>>` to implement `Unpin`
+note: required because it appears within the type `__Origin<'_, Filter<impl Stream<Item = Vec<VectorDiff<_>>>, _>>`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pin-project-lite-0.2.18/src/lib.rs:1253:21
+     |
+1253 |           $vis struct __Origin<'__pin, $($impl_generics)*>
+     |                       ^^^^^^^^
+     |
+    ::: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/eyeball-im-util-0.10.0/src/vector/sort.rs:222:1
+     |
+ 222 | / pin_project! {
+ 223 | |     pub struct SortImpl<S>
+ 224 | |     where
+ 225 | |         S: Stream,
+...    |
+ 242 | | }
+     | |_- in this macro invocation
+     = note: required for `SortImpl<Filter<impl Stream<Item = Vec<VectorDiff<RoomListItem>>>, _>>` to implement `Unpin`
+note: required because it appears within the type `__Origin<'_, Filter<impl Stream<Item = Vec<VectorDiff<_>>>, _>, _>`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pin-project-lite-0.2.18/src/lib.rs:1253:21
+     |
+1253 |           $vis struct __Origin<'__pin, $($impl_generics)*>
+     |                       ^^^^^^^^
+     |
+    ::: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/eyeball-im-util-0.10.0/src/vector/sort.rs:110:1
+     |
+ 110 | / pin_project! {
+ 111 | |     /// A [`VectorDiff`] stream adapter that presents a sorted view of the
+ 112 | |     /// underlying [`ObservableVector`] items.
+ 113 | |     ///
+...    |
+ 130 | | }
+     | |_- in this macro invocation
+     = note: required for `SortBy<Filter<impl Stream<Item = Vec<VectorDiff<_>>>, _>, _>` to implement `Unpin`
+note: required because it appears within the type `__Origin<'_, SortBy<Filter<impl Stream<Item = Vec<_>>, _>, _>, _>`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pin-project-lite-0.2.18/src/lib.rs:1253:21
+     |
+1253 |           $vis struct __Origin<'__pin, $($impl_generics)*>
+     |                       ^^^^^^^^
+     |
+    ::: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/eyeball-im-util-0.10.0/src/vector/head.rs:18:1
+     |
+  18 | / pin_project! {
+  19 | |     /// A [`VectorDiff`] stream adapter that presents a limited view of the
+  20 | |     /// underlying [`ObservableVector`]'s items. The view starts from index 0.
+  21 | |     /// This is the opposite of [`Tail`](super::Tail), which starts from the
+...    |
+ 114 | | }
+     | |_- in this macro invocation
+     = note: required for `Head<SortBy<Filter<impl Stream<Item = Vec<VectorDiff<_>>>, _>, _>, _>` to implement `Unpin`
+note: required because it appears within the type `__Origin<'_, Once<Ready<Vec<VectorDiff<RoomListItem>>>>, Head<_, _>>`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pin-project-lite-0.2.18/src/lib.rs:1253:21
+     |
+1253 |           $vis struct __Origin<'__pin, $($impl_generics)*>
+     |                       ^^^^^^^^
+     |
+    ::: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-util-0.3.34/src/stream/stream/chain.rs:7:1
+     |
+   7 | / pin_project! {
+   8 | |     /// Stream for the [`chain`](super::StreamExt::chain) method.
+   9 | |     #[derive(Debug)]
+  10 | |     #[must_use = "streams do nothing unless polled"]
+...    |
+  17 | | }
+     | |_- in this macro invocation
+     = note: required for `Chain<Once<Ready<Vec<VectorDiff<RoomListItem>>>>, Head<_, _>>` to implement `Unpin`
+note: required because it appears within the type `__Origin<'_, Chain<Once<Ready<Vec<VectorDiff<RoomListItem>>>>, _>>`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pin-project-lite-0.2.18/src/lib.rs:1253:21
+     |
+1253 |           $vis struct __Origin<'__pin, $($impl_generics)*>
+     |                       ^^^^^^^^
+     |
+    ::: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/async-rx-0.1.3/src/lib.rs:258:1
+     |
+ 258 | / pin_project! {
+ 259 | |     #[project = SwitchStateProj]
+ 260 | |     enum SwitchState<S> {
+ 261 | |         None,
+...    |
+ 267 | | }
+     | |_- in this macro invocation
+     = note: required for `SwitchState<Chain<Once<Ready<Vec<VectorDiff<RoomListItem>>>>, _>>` to implement `Unpin`
+note: required because it appears within the type `__Origin<'_, AsyncStream<Chain<Once<Ready<Vec<_>>>, _>, _>>`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pin-project-lite-0.2.18/src/lib.rs:1253:21
+     |
+1253 |           $vis struct __Origin<'__pin, $($impl_generics)*>
+     |                       ^^^^^^^^
+     |
+    ::: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/async-rx-0.1.3/src/lib.rs:248:1
+     |
+ 248 | / pin_project! {
+ 249 | |     /// Stream adapter produced by [`StreamExt::switch`].
+ 250 | |     pub struct Switch<S: Stream> {
+ 251 | |         #[pin]
+...    |
+ 256 | | }
+     | |_- in this macro invocation
+     = note: required for `Switch<AsyncStream<Chain<Once<Ready<Vec<VectorDiff<_>>>>, _>, _>>` to implement `Unpin`
+note: required because it appears within the type `impl Stream<Item = Vec<VectorDiff<RoomListItem>>> + '_`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/matrix-sdk-ui-0.16.1/src/room_list_service/room_list.rs:165:11
+     |
+ 165 |     ) -> (impl Stream<Item = Vec<VectorDiff<RoomListItem>>> + '_, RoomListDynamicEntriesController)
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: required because it appears within the type `impl Stream<Item = Vec<VectorDiff<RoomListItem>>> + '_`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/matrix-sdk-ui-0.16.1/src/room_list_service/room_list.rs:146:11
+     |
+ 146 |     ) -> (impl Stream<Item = Vec<VectorDiff<RoomListItem>>> + '_, RoomListDynamicEntriesController)
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: required by a bound in `futures_util::StreamExt::next`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-util-0.3.34/src/stream/stream/mod.rs:275:15
+     |
+ 249 | pub trait StreamExt: Stream {
+...
+ 273 |     fn next(&mut self) -> Next<'_, Self>
+ 274 |     where
+ 275 |         Self: Unpin,
+     |               ^^^^^ required by this bound in `StreamExt::next`
+     = note: the full name for the type has been written to '/home/runner/work/cinny-android/cinny-android/cinny-android/rust-core/target/debug/build/cinny_core/e14655a3ba67636e/out/cinny_core-e14655a3ba67636e.long-type-1243188937185046513.txt'
+     = note: consider using `--verbose` to print the full type name to the console
+     = note: this error originates in the macro `$crate::__pin_project_make_unpin_impl` which comes from the expansion of the macro `pin_project` (in Nightly builds, run with -Z macro-backtrace for more info)
+error[E0277]: `{async block@...}` cannot be unpinned
+    --> src/client.rs:352:52
+     |
+ 352 |                     while let Some(diffs) = stream.next().await {
+     |                                                    ^^^^ within `__Origin<'_, Vec<VectorDiff<RoomListItem>>, {async block@...}>`, the trait `Unpin` is not implemented for `{async block@...}`
+     |
+     = note: consider using the `pin!` macro
+             consider using `Box::pin` if you need to access the pinned value outside of the current scope
+note: required because it appears within the type `__Origin<'_, Vec<VectorDiff<RoomListItem>>, {async block@...}>`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pin-project-lite-0.2.18/src/lib.rs:1253:21
+     |
+1253 |           $vis struct __Origin<'__pin, $($impl_generics)*>
+     |                       ^^^^^^^^
+     |
+    ::: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/async-stream-0.3.6/src/async_stream.rs:9:1
+     |
+   9 | / pin_project! {
+  10 | |     #[doc(hidden)]
+  11 | |     #[derive(Debug)]
+  12 | |     pub struct AsyncStream<T, U> {
+...    |
+  18 | | }
+     | |_- in this macro invocation
+     = note: required for `AsyncStream<Vec<VectorDiff<RoomListItem>>, {async block@...}>` to implement `Unpin`
+note: required because it appears within the type `impl Stream<Item = Vec<VectorDiff<RoomListItem>>>`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/matrix-sdk-ui-0.16.1/src/room_list_service/room_list.rs:230:6
+     |
+ 230 | ) -> impl Stream<Item = Vec<VectorDiff<RoomListItem>>> {
+     |      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: required because it appears within the type `__Origin<'_, impl Stream<Item = Vec<VectorDiff<RoomListItem>>>>`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pin-project-lite-0.2.18/src/lib.rs:1253:21
+     |
+1253 |           $vis struct __Origin<'__pin, $($impl_generics)*>
+     |                       ^^^^^^^^
+     |
+    ::: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/eyeball-im-util-0.10.0/src/vector/filter.rs:129:1
+     |
+ 129 | / pin_project! {
+ 130 | |     #[project = FilterImplProj]
+ 131 | |     pub(super) struct FilterImpl<S> {
+ 132 | |         #[pin]
+...    |
+ 144 | | }
+     | |_- in this macro invocation
+     = note: required for `FilterImpl<impl Stream<Item = Vec<VectorDiff<RoomListItem>>>>` to implement `Unpin`
+note: required because it appears within the type `__Origin<'_, impl Stream<Item = Vec<VectorDiff<RoomListItem>>>, _>`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pin-project-lite-0.2.18/src/lib.rs:1253:21
+     |
+1253 |           $vis struct __Origin<'__pin, $($impl_generics)*>
+     |                       ^^^^^^^^
+     |
+    ::: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/eyeball-im-util-0.10.0/src/vector/filter.rs:17:1
+     |
+  17 | / pin_project! {
+  18 | |     /// A [`VectorDiff`] stream adapter that presents a filtered view of the
+  19 | |     /// underlying [`ObservableVector`]s items.
+  20 | |     ///
+...    |
+  27 | | }
+     | |_- in this macro invocation
+     = note: required for `Filter<impl Stream<Item = Vec<VectorDiff<RoomListItem>>>, Box<_>>` to implement `Unpin`
+note: required because it appears within the type `__Origin<'_, Filter<impl Stream<Item = Vec<VectorDiff<_>>>, _>>`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pin-project-lite-0.2.18/src/lib.rs:1253:21
+     |
+1253 |           $vis struct __Origin<'__pin, $($impl_generics)*>
+     |                       ^^^^^^^^
+     |
+    ::: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/eyeball-im-util-0.10.0/src/vector/sort.rs:222:1
+     |
+ 222 | / pin_project! {
+ 223 | |     pub struct SortImpl<S>
+ 224 | |     where
+ 225 | |         S: Stream,
+...    |
+ 242 | | }
+     | |_- in this macro invocation
+     = note: required for `SortImpl<Filter<impl Stream<Item = Vec<VectorDiff<RoomListItem>>>, _>>` to implement `Unpin`
+note: required because it appears within the type `__Origin<'_, Filter<impl Stream<Item = Vec<VectorDiff<_>>>, _>, _>`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pin-project-lite-0.2.18/src/lib.rs:1253:21
+     |
+1253 |           $vis struct __Origin<'__pin, $($impl_generics)*>
+     |                       ^^^^^^^^
+     |
+    ::: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/eyeball-im-util-0.10.0/src/vector/sort.rs:110:1
+     |
+ 110 | / pin_project! {
+ 111 | |     /// A [`VectorDiff`] stream adapter that presents a sorted view of the
+ 112 | |     /// underlying [`ObservableVector`] items.
+ 113 | |     ///
+...    |
+ 130 | | }
+     | |_- in this macro invocation
+     = note: required for `SortBy<Filter<impl Stream<Item = Vec<VectorDiff<_>>>, _>, _>` to implement `Unpin`
+note: required because it appears within the type `__Origin<'_, SortBy<Filter<impl Stream<Item = Vec<_>>, _>, _>, _>`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pin-project-lite-0.2.18/src/lib.rs:1253:21
+     |
+1253 |           $vis struct __Origin<'__pin, $($impl_generics)*>
+     |                       ^^^^^^^^
+     |
+    ::: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/eyeball-im-util-0.10.0/src/vector/head.rs:18:1
+     |
+  18 | / pin_project! {
+  19 | |     /// A [`VectorDiff`] stream adapter that presents a limited view of the
+  20 | |     /// underlying [`ObservableVector`]'s items. The view starts from index 0.
+  21 | |     /// This is the opposite of [`Tail`](super::Tail), which starts from the
+...    |
+ 114 | | }
+     | |_- in this macro invocation
+     = note: required for `Head<SortBy<Filter<impl Stream<Item = Vec<VectorDiff<_>>>, _>, _>, _>` to implement `Unpin`
+note: required because it appears within the type `__Origin<'_, Once<Ready<Vec<VectorDiff<RoomListItem>>>>, Head<_, _>>`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pin-project-lite-0.2.18/src/lib.rs:1253:21
+     |
+1253 |           $vis struct __Origin<'__pin, $($impl_generics)*>
+     |                       ^^^^^^^^
+     |
+    ::: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-util-0.3.34/src/stream/stream/chain.rs:7:1
+     |
+   7 | / pin_project! {
+   8 | |     /// Stream for the [`chain`](super::StreamExt::chain) method.
+   9 | |     #[derive(Debug)]
+  10 | |     #[must_use = "streams do nothing unless polled"]
+...    |
+  17 | | }
+     | |_- in this macro invocation
+     = note: required for `Chain<Once<Ready<Vec<VectorDiff<RoomListItem>>>>, Head<_, _>>` to implement `Unpin`
+note: required because it appears within the type `__Origin<'_, Chain<Once<Ready<Vec<VectorDiff<RoomListItem>>>>, _>>`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pin-project-lite-0.2.18/src/lib.rs:1253:21
+     |
+1253 |           $vis struct __Origin<'__pin, $($impl_generics)*>
+     |                       ^^^^^^^^
+     |
+    ::: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/async-rx-0.1.3/src/lib.rs:258:1
+     |
+ 258 | / pin_project! {
+ 259 | |     #[project = SwitchStateProj]
+ 260 | |     enum SwitchState<S> {
+ 261 | |         None,
+...    |
+ 267 | | }
+     | |_- in this macro invocation
+     = note: required for `SwitchState<Chain<Once<Ready<Vec<VectorDiff<RoomListItem>>>>, _>>` to implement `Unpin`
+note: required because it appears within the type `__Origin<'_, AsyncStream<Chain<Once<Ready<Vec<_>>>, _>, _>>`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pin-project-lite-0.2.18/src/lib.rs:1253:21
+     |
+1253 |           $vis struct __Origin<'__pin, $($impl_generics)*>
+     |                       ^^^^^^^^
+     |
+    ::: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/async-rx-0.1.3/src/lib.rs:248:1
+     |
+ 248 | / pin_project! {
+ 249 | |     /// Stream adapter produced by [`StreamExt::switch`].
+ 250 | |     pub struct Switch<S: Stream> {
+ 251 | |         #[pin]
+...    |
+ 256 | | }
+     | |_- in this macro invocation
+     = note: required for `Switch<AsyncStream<Chain<Once<Ready<Vec<VectorDiff<_>>>>, _>, _>>` to implement `Unpin`
+note: required because it appears within the type `impl Stream<Item = Vec<VectorDiff<RoomListItem>>> + '_`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/matrix-sdk-ui-0.16.1/src/room_list_service/room_list.rs:165:11
+     |
+ 165 |     ) -> (impl Stream<Item = Vec<VectorDiff<RoomListItem>>> + '_, RoomListDynamicEntriesController)
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: required because it appears within the type `impl Stream<Item = Vec<VectorDiff<RoomListItem>>> + '_`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/matrix-sdk-ui-0.16.1/src/room_list_service/room_list.rs:146:11
+     |
+ 146 |     ) -> (impl Stream<Item = Vec<VectorDiff<RoomListItem>>> + '_, RoomListDynamicEntriesController)
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: required by a bound in `futures_util::StreamExt::next`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-util-0.3.34/src/stream/stream/mod.rs:275:15
+     |
+ 249 | pub trait StreamExt: Stream {
+...
+ 273 |     fn next(&mut self) -> Next<'_, Self>
+ 274 |     where
+ 275 |         Self: Unpin,
+     |               ^^^^^ required by this bound in `StreamExt::next`
+     = note: the full name for the type has been written to '/home/runner/work/cinny-android/cinny-android/cinny-android/rust-core/target/debug/build/cinny_core/5441533b1df4ab93/out/cinny_core.long-type-13534170169956063779.txt'
+     = note: consider using `--verbose` to print the full type name to the console
+     = note: this error originates in the macro `$crate::__pin_project_make_unpin_impl` which comes from the expansion of the macro `pin_project` (in Nightly builds, run with -Z macro-backtrace for more info)
+error[E0277]: `{async block@...}` cannot be unpinned
+    --> src/client.rs:352:59
+     |
+ 352 |                     while let Some(diffs) = stream.next().await {
+     |                                                           ^^^^^ within `__Origin<'_, Chain<Once<Ready<Vec<VectorDiff<RoomListItem>>>>, _>, _>`, the trait `Unpin` is not implemented for `{async block@...}`
+     |
+     = note: consider using the `pin!` macro
+             consider using `Box::pin` if you need to access the pinned value outside of the current scope
+note: required because it appears within the type `__Origin<'_, Chain<Once<Ready<Vec<VectorDiff<RoomListItem>>>>, _>, _>`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pin-project-lite-0.2.18/src/lib.rs:1253:21
+     |
+1253 |           $vis struct __Origin<'__pin, $($impl_generics)*>
+     |                       ^^^^^^^^
+     |
+    ::: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/async-stream-0.3.6/src/async_stream.rs:9:1
+     |
+   9 | / pin_project! {
+  10 | |     #[doc(hidden)]
+  11 | |     #[derive(Debug)]
+  12 | |     pub struct AsyncStream<T, U> {
+...    |
+  18 | | }
+     | |_- in this macro invocation
+     = note: required for `AsyncStream<Chain<Once<Ready<Vec<VectorDiff<RoomListItem>>>>, _>, _>` to implement `Unpin`
+note: required because it appears within the type `__Origin<'_, AsyncStream<Chain<Once<Ready<Vec<_>>>, _>, _>>`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pin-project-lite-0.2.18/src/lib.rs:1253:21
+     |
+1253 |           $vis struct __Origin<'__pin, $($impl_generics)*>
+     |                       ^^^^^^^^
+     |
+    ::: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/async-rx-0.1.3/src/lib.rs:248:1
+     |
+ 248 | / pin_project! {
+ 249 | |     /// Stream adapter produced by [`StreamExt::switch`].
+ 250 | |     pub struct Switch<S: Stream> {
+ 251 | |         #[pin]
+...    |
+ 256 | | }
+     | |_- in this macro invocation
+     = note: required for `Switch<AsyncStream<Chain<Once<Ready<Vec<VectorDiff<_>>>>, _>, _>>` to implement `Unpin`
+note: required because it appears within the type `impl Stream<Item = Vec<VectorDiff<RoomListItem>>> + '_`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/matrix-sdk-ui-0.16.1/src/room_list_service/room_list.rs:165:11
+     |
+ 165 |     ) -> (impl Stream<Item = Vec<VectorDiff<RoomListItem>>> + '_, RoomListDynamicEntriesController)
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: required because it appears within the type `impl Stream<Item = Vec<VectorDiff<RoomListItem>>> + '_`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/matrix-sdk-ui-0.16.1/src/room_list_service/room_list.rs:146:11
+     |
+ 146 |     ) -> (impl Stream<Item = Vec<VectorDiff<RoomListItem>>> + '_, RoomListDynamicEntriesController)
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     = note: required for `Next<'_, impl Stream<Item = Vec<VectorDiff<RoomListItem>>> + '_>` to implement `futures_util::Future`
+     = note: required for `Next<'_, impl Stream<Item = Vec<VectorDiff<RoomListItem>>> + '_>` to implement `std::future::IntoFuture`
+     = note: the full name for the type has been written to '/home/runner/work/cinny-android/cinny-android/cinny-android/rust-core/target/debug/build/cinny_core/e14655a3ba67636e/out/cinny_core-e14655a3ba67636e.long-type-10684007200018099672.txt'
+     = note: consider using `--verbose` to print the full type name to the console
+     = note: this error originates in the macro `$crate::__pin_project_make_unpin_impl` which comes from the expansion of the macro `pin_project` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: remove the `.await`
+     |
+ 352 -                     while let Some(diffs) = stream.next().await {
+ 352 +                     while let Some(diffs) = stream.next() {
+     |
+error[E0277]: `{async block@...}` cannot be unpinned
+    --> src/client.rs:352:59
+     |
+ 352 |                     while let Some(diffs) = stream.next().await {
+     |                                                           ^^^^^ within `__Origin<'_, Chain<Once<Ready<Vec<VectorDiff<RoomListItem>>>>, _>, _>`, the trait `Unpin` is not implemented for `{async block@...}`
+     |
+     = note: consider using the `pin!` macro
+             consider using `Box::pin` if you need to access the pinned value outside of the current scope
+note: required because it appears within the type `__Origin<'_, Chain<Once<Ready<Vec<VectorDiff<RoomListItem>>>>, _>, _>`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pin-project-lite-0.2.18/src/lib.rs:1253:21
+     |
+1253 |           $vis struct __Origin<'__pin, $($impl_generics)*>
+     |                       ^^^^^^^^
+     |
+    ::: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/async-stream-0.3.6/src/async_stream.rs:9:1
+     |
+   9 | / pin_project! {
+  10 | |     #[doc(hidden)]
+  11 | |     #[derive(Debug)]
+  12 | |     pub struct AsyncStream<T, U> {
+...    |
+  18 | | }
+     | |_- in this macro invocation
+     = note: required for `AsyncStream<Chain<Once<Ready<Vec<VectorDiff<RoomListItem>>>>, _>, _>` to implement `Unpin`
+note: required because it appears within the type `__Origin<'_, AsyncStream<Chain<Once<Ready<Vec<_>>>, _>, _>>`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pin-project-lite-0.2.18/src/lib.rs:1253:21
+     |
+1253 |           $vis struct __Origin<'__pin, $($impl_generics)*>
+     |                       ^^^^^^^^
+     |
+    ::: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/async-rx-0.1.3/src/lib.rs:248:1
+     |
+ 248 | / pin_project! {
+ 249 | |     /// Stream adapter produced by [`StreamExt::switch`].
+ 250 | |     pub struct Switch<S: Stream> {
+ 251 | |         #[pin]
+...    |
+ 256 | | }
+     | |_- in this macro invocation
+     = note: required for `Switch<AsyncStream<Chain<Once<Ready<Vec<VectorDiff<_>>>>, _>, _>>` to implement `Unpin`
+note: required because it appears within the type `impl Stream<Item = Vec<VectorDiff<RoomListItem>>> + '_`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/matrix-sdk-ui-0.16.1/src/room_list_service/room_list.rs:165:11
+     |
+ 165 |     ) -> (impl Stream<Item = Vec<VectorDiff<RoomListItem>>> + '_, RoomListDynamicEntriesController)
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: required because it appears within the type `impl Stream<Item = Vec<VectorDiff<RoomListItem>>> + '_`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/matrix-sdk-ui-0.16.1/src/room_list_service/room_list.rs:146:11
+     |
+ 146 |     ) -> (impl Stream<Item = Vec<VectorDiff<RoomListItem>>> + '_, RoomListDynamicEntriesController)
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     = note: required for `Next<'_, impl Stream<Item = Vec<VectorDiff<RoomListItem>>> + '_>` to implement `futures_util::Future`
+     = note: required for `Next<'_, impl Stream<Item = Vec<VectorDiff<RoomListItem>>> + '_>` to implement `std::future::IntoFuture`
+     = note: the full name for the type has been written to '/home/runner/work/cinny-android/cinny-android/cinny-android/rust-core/target/debug/build/cinny_core/5441533b1df4ab93/out/cinny_core.long-type-14263309563430959635.txt'
+     = note: consider using `--verbose` to print the full type name to the console
+     = note: this error originates in the macro `$crate::__pin_project_make_unpin_impl` which comes from the expansion of the macro `pin_project` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: remove the `.await`
+     |
+ 352 -                     while let Some(diffs) = stream.next().await {
+ 352 +                     while let Some(diffs) = stream.next() {
+     |
+error[E0277]: `{async block@...}` cannot be unpinned
+    --> src/client.rs:352:59
+     |
+ 352 |                     while let Some(diffs) = stream.next().await {
+     |                                                           ^^^^^ within `__Origin<'_, Vec<VectorDiff<RoomListItem>>, {async block@...}>`, the trait `Unpin` is not implemented for `{async block@...}`
+     |
+     = note: consider using the `pin!` macro
+             consider using `Box::pin` if you need to access the pinned value outside of the current scope
+note: required because it appears within the type `__Origin<'_, Vec<VectorDiff<RoomListItem>>, {async block@...}>`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pin-project-lite-0.2.18/src/lib.rs:1253:21
+     |
+1253 |           $vis struct __Origin<'__pin, $($impl_generics)*>
+     |                       ^^^^^^^^
+     |
+    ::: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/async-stream-0.3.6/src/async_stream.rs:9:1
+     |
+   9 | / pin_project! {
+  10 | |     #[doc(hidden)]
+  11 | |     #[derive(Debug)]
+  12 | |     pub struct AsyncStream<T, U> {
+...    |
+  18 | | }
+     | |_- in this macro invocation
+     = note: required for `AsyncStream<Vec<VectorDiff<RoomListItem>>, {async block@...}>` to implement `Unpin`
+note: required because it appears within the type `impl Stream<Item = Vec<VectorDiff<RoomListItem>>>`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/matrix-sdk-ui-0.16.1/src/room_list_service/room_list.rs:230:6
+     |
+ 230 | ) -> impl Stream<Item = Vec<VectorDiff<RoomListItem>>> {
+     |      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: required because it appears within the type `__Origin<'_, impl Stream<Item = Vec<VectorDiff<RoomListItem>>>>`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pin-project-lite-0.2.18/src/lib.rs:1253:21
+     |
+1253 |           $vis struct __Origin<'__pin, $($impl_generics)*>
+     |                       ^^^^^^^^
+     |
+    ::: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/eyeball-im-util-0.10.0/src/vector/filter.rs:129:1
+     |
+ 129 | / pin_project! {
+ 130 | |     #[project = FilterImplProj]
+ 131 | |     pub(super) struct FilterImpl<S> {
+ 132 | |         #[pin]
+...    |
+ 144 | | }
+     | |_- in this macro invocation
+     = note: required for `FilterImpl<impl Stream<Item = Vec<VectorDiff<RoomListItem>>>>` to implement `Unpin`
+note: required because it appears within the type `__Origin<'_, impl Stream<Item = Vec<VectorDiff<RoomListItem>>>, _>`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pin-project-lite-0.2.18/src/lib.rs:1253:21
+     |
+1253 |           $vis struct __Origin<'__pin, $($impl_generics)*>
+     |                       ^^^^^^^^
+     |
+    ::: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/eyeball-im-util-0.10.0/src/vector/filter.rs:17:1
+     |
+  17 | / pin_project! {
+  18 | |     /// A [`VectorDiff`] stream adapter that presents a filtered view of the
+  19 | |     /// underlying [`ObservableVector`]s items.
+  20 | |     ///
+...    |
+  27 | | }
+     | |_- in this macro invocation
+     = note: required for `Filter<impl Stream<Item = Vec<VectorDiff<RoomListItem>>>, Box<_>>` to implement `Unpin`
+note: required because it appears within the type `__Origin<'_, Filter<impl Stream<Item = Vec<VectorDiff<_>>>, _>>`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pin-project-lite-0.2.18/src/lib.rs:1253:21
+     |
+1253 |           $vis struct __Origin<'__pin, $($impl_generics)*>
+     |                       ^^^^^^^^
+     |
+    ::: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/eyeball-im-util-0.10.0/src/vector/sort.rs:222:1
+     |
+ 222 | / pin_project! {
+ 223 | |     pub struct SortImpl<S>
+ 224 | |     where
+ 225 | |         S: Stream,
+...    |
+ 242 | | }
+     | |_- in this macro invocation
+     = note: required for `SortImpl<Filter<impl Stream<Item = Vec<VectorDiff<RoomListItem>>>, _>>` to implement `Unpin`
+note: required because it appears within the type `__Origin<'_, Filter<impl Stream<Item = Vec<VectorDiff<_>>>, _>, _>`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pin-project-lite-0.2.18/src/lib.rs:1253:21
+     |
+1253 |           $vis struct __Origin<'__pin, $($impl_generics)*>
+     |                       ^^^^^^^^
+     |
+    ::: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/eyeball-im-util-0.10.0/src/vector/sort.rs:110:1
+     |
+ 110 | / pin_project! {
+ 111 | |     /// A [`VectorDiff`] stream adapter that presents a sorted view of the
+ 112 | |     /// underlying [`ObservableVector`] items.
+ 113 | |     ///
+...    |
+ 130 | | }
+     | |_- in this macro invocation
+     = note: required for `SortBy<Filter<impl Stream<Item = Vec<VectorDiff<_>>>, _>, _>` to implement `Unpin`
+note: required because it appears within the type `__Origin<'_, SortBy<Filter<impl Stream<Item = Vec<_>>, _>, _>, _>`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pin-project-lite-0.2.18/src/lib.rs:1253:21
+     |
+1253 |           $vis struct __Origin<'__pin, $($impl_generics)*>
+     |                       ^^^^^^^^
+     |
+    ::: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/eyeball-im-util-0.10.0/src/vector/head.rs:18:1
+     |
+  18 | / pin_project! {
+  19 | |     /// A [`VectorDiff`] stream adapter that presents a limited view of the
+  20 | |     /// underlying [`ObservableVector`]'s items. The view starts from index 0.
+  21 | |     /// This is the opposite of [`Tail`](super::Tail), which starts from the
+...    |
+ 114 | | }
+     | |_- in this macro invocation
+     = note: required for `Head<SortBy<Filter<impl Stream<Item = Vec<VectorDiff<_>>>, _>, _>, _>` to implement `Unpin`
+note: required because it appears within the type `__Origin<'_, Once<Ready<Vec<VectorDiff<RoomListItem>>>>, Head<_, _>>`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pin-project-lite-0.2.18/src/lib.rs:1253:21
+     |
+1253 |           $vis struct __Origin<'__pin, $($impl_generics)*>
+     |                       ^^^^^^^^
+     |
+    ::: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-util-0.3.34/src/stream/stream/chain.rs:7:1
+     |
+   7 | / pin_project! {
+   8 | |     /// Stream for the [`chain`](super::StreamExt::chain) method.
+   9 | |     #[derive(Debug)]
+  10 | |     #[must_use = "streams do nothing unless polled"]
+...    |
+  17 | | }
+     | |_- in this macro invocation
+     = note: required for `Chain<Once<Ready<Vec<VectorDiff<RoomListItem>>>>, Head<_, _>>` to implement `Unpin`
+note: required because it appears within the type `__Origin<'_, Chain<Once<Ready<Vec<VectorDiff<RoomListItem>>>>, _>>`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pin-project-lite-0.2.18/src/lib.rs:1253:21
+     |
+1253 |           $vis struct __Origin<'__pin, $($impl_generics)*>
+     |                       ^^^^^^^^
+     |
+    ::: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/async-rx-0.1.3/src/lib.rs:258:1
+     |
+ 258 | / pin_project! {
+ 259 | |     #[project = SwitchStateProj]
+ 260 | |     enum SwitchState<S> {
+ 261 | |         None,
+...    |
+ 267 | | }
+     | |_- in this macro invocation
+     = note: required for `SwitchState<Chain<Once<Ready<Vec<VectorDiff<RoomListItem>>>>, _>>` to implement `Unpin`
+note: required because it appears within the type `__Origin<'_, AsyncStream<Chain<Once<Ready<Vec<_>>>, _>, _>>`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pin-project-lite-0.2.18/src/lib.rs:1253:21
+     |
+1253 |           $vis struct __Origin<'__pin, $($impl_generics)*>
+     |                       ^^^^^^^^
+     |
+    ::: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/async-rx-0.1.3/src/lib.rs:248:1
+     |
+ 248 | / pin_project! {
+ 249 | |     /// Stream adapter produced by [`StreamExt::switch`].
+ 250 | |     pub struct Switch<S: Stream> {
+ 251 | |         #[pin]
+...    |
+ 256 | | }
+     | |_- in this macro invocation
+     = note: required for `Switch<AsyncStream<Chain<Once<Ready<Vec<VectorDiff<_>>>>, _>, _>>` to implement `Unpin`
+note: required because it appears within the type `impl Stream<Item = Vec<VectorDiff<RoomListItem>>> + '_`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/matrix-sdk-ui-0.16.1/src/room_list_service/room_list.rs:165:11
+     |
+ 165 |     ) -> (impl Stream<Item = Vec<VectorDiff<RoomListItem>>> + '_, RoomListDynamicEntriesController)
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: required because it appears within the type `impl Stream<Item = Vec<VectorDiff<RoomListItem>>> + '_`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/matrix-sdk-ui-0.16.1/src/room_list_service/room_list.rs:146:11
+     |
+ 146 |     ) -> (impl Stream<Item = Vec<VectorDiff<RoomListItem>>> + '_, RoomListDynamicEntriesController)
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     = note: required for `Next<'_, impl Stream<Item = Vec<VectorDiff<RoomListItem>>> + '_>` to implement `futures_util::Future`
+     = note: required for `Next<'_, impl Stream<Item = Vec<VectorDiff<RoomListItem>>> + '_>` to implement `std::future::IntoFuture`
+     = note: the full name for the type has been written to '/home/runner/work/cinny-android/cinny-android/cinny-android/rust-core/target/debug/build/cinny_core/e14655a3ba67636e/out/cinny_core-e14655a3ba67636e.long-type-2147958056929934151.txt'
+     = note: consider using `--verbose` to print the full type name to the console
+     = note: this error originates in the macro `$crate::__pin_project_make_unpin_impl` which comes from the expansion of the macro `pin_project` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: remove the `.await`
+     |
+ 352 -                     while let Some(diffs) = stream.next().await {
+ 352 +                     while let Some(diffs) = stream.next() {
+     |
+error[E0277]: `{async block@...}` cannot be unpinned
+    --> src/client.rs:352:59
+     |
+ 352 |                     while let Some(diffs) = stream.next().await {
+     |                                                           ^^^^^ within `__Origin<'_, Vec<VectorDiff<RoomListItem>>, {async block@...}>`, the trait `Unpin` is not implemented for `{async block@...}`
+     |
+     = note: consider using the `pin!` macro
+             consider using `Box::pin` if you need to access the pinned value outside of the current scope
+note: required because it appears within the type `__Origin<'_, Vec<VectorDiff<RoomListItem>>, {async block@...}>`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pin-project-lite-0.2.18/src/lib.rs:1253:21
+     |
+1253 |           $vis struct __Origin<'__pin, $($impl_generics)*>
+     |                       ^^^^^^^^
+     |
+    ::: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/async-stream-0.3.6/src/async_stream.rs:9:1
+     |
+   9 | / pin_project! {
+  10 | |     #[doc(hidden)]
+  11 | |     #[derive(Debug)]
+  12 | |     pub struct AsyncStream<T, U> {
+...    |
+  18 | | }
+     | |_- in this macro invocation
+     = note: required for `AsyncStream<Vec<VectorDiff<RoomListItem>>, {async block@...}>` to implement `Unpin`
+note: required because it appears within the type `impl Stream<Item = Vec<VectorDiff<RoomListItem>>>`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/matrix-sdk-ui-0.16.1/src/room_list_service/room_list.rs:230:6
+     |
+ 230 | ) -> impl Stream<Item = Vec<VectorDiff<RoomListItem>>> {
+     |      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: required because it appears within the type `__Origin<'_, impl Stream<Item = Vec<VectorDiff<RoomListItem>>>>`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pin-project-lite-0.2.18/src/lib.rs:1253:21
+     |
+1253 |           $vis struct __Origin<'__pin, $($impl_generics)*>
+     |                       ^^^^^^^^
+     |
+    ::: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/eyeball-im-util-0.10.0/src/vector/filter.rs:129:1
+     |
+ 129 | / pin_project! {
+ 130 | |     #[project = FilterImplProj]
+ 131 | |     pub(super) struct FilterImpl<S> {
+ 132 | |         #[pin]
+...    |
+ 144 | | }
+     | |_- in this macro invocation
+     = note: required for `FilterImpl<impl Stream<Item = Vec<VectorDiff<RoomListItem>>>>` to implement `Unpin`
+note: required because it appears within the type `__Origin<'_, impl Stream<Item = Vec<VectorDiff<RoomListItem>>>, _>`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pin-project-lite-0.2.18/src/lib.rs:1253:21
+     |
+1253 |           $vis struct __Origin<'__pin, $($impl_generics)*>
+     |                       ^^^^^^^^
+     |
+    ::: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/eyeball-im-util-0.10.0/src/vector/filter.rs:17:1
+     |
+  17 | / pin_project! {
+  18 | |     /// A [`VectorDiff`] stream adapter that presents a filtered view of the
+  19 | |     /// underlying [`ObservableVector`]s items.
+  20 | |     ///
+...    |
+  27 | | }
+     | |_- in this macro invocation
+     = note: required for `Filter<impl Stream<Item = Vec<VectorDiff<RoomListItem>>>, Box<_>>` to implement `Unpin`
+note: required because it appears within the type `__Origin<'_, Filter<impl Stream<Item = Vec<VectorDiff<_>>>, _>>`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pin-project-lite-0.2.18/src/lib.rs:1253:21
+     |
+1253 |           $vis struct __Origin<'__pin, $($impl_generics)*>
+     |                       ^^^^^^^^
+     |
+    ::: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/eyeball-im-util-0.10.0/src/vector/sort.rs:222:1
+     |
+ 222 | / pin_project! {
+ 223 | |     pub struct SortImpl<S>
+ 224 | |     where
+ 225 | |         S: Stream,
+...    |
+ 242 | | }
+     | |_- in this macro invocation
+     = note: required for `SortImpl<Filter<impl Stream<Item = Vec<VectorDiff<RoomListItem>>>, _>>` to implement `Unpin`
+note: required because it appears within the type `__Origin<'_, Filter<impl Stream<Item = Vec<VectorDiff<_>>>, _>, _>`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pin-project-lite-0.2.18/src/lib.rs:1253:21
+     |
+1253 |           $vis struct __Origin<'__pin, $($impl_generics)*>
+     |                       ^^^^^^^^
+     |
+    ::: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/eyeball-im-util-0.10.0/src/vector/sort.rs:110:1
+     |
+ 110 | / pin_project! {
+ 111 | |     /// A [`VectorDiff`] stream adapter that presents a sorted view of the
+ 112 | |     /// underlying [`ObservableVector`] items.
+ 113 | |     ///
+...    |
+ 130 | | }
+     | |_- in this macro invocation
+     = note: required for `SortBy<Filter<impl Stream<Item = Vec<VectorDiff<_>>>, _>, _>` to implement `Unpin`
+note: required because it appears within the type `__Origin<'_, SortBy<Filter<impl Stream<Item = Vec<_>>, _>, _>, _>`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pin-project-lite-0.2.18/src/lib.rs:1253:21
+     |
+1253 |           $vis struct __Origin<'__pin, $($impl_generics)*>
+     |                       ^^^^^^^^
+     |
+    ::: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/eyeball-im-util-0.10.0/src/vector/head.rs:18:1
+     |
+  18 | / pin_project! {
+  19 | |     /// A [`VectorDiff`] stream adapter that presents a limited view of the
+  20 | |     /// underlying [`ObservableVector`]'s items. The view starts from index 0.
+  21 | |     /// This is the opposite of [`Tail`](super::Tail), which starts from the
+...    |
+ 114 | | }
+     | |_- in this macro invocation
+     = note: required for `Head<SortBy<Filter<impl Stream<Item = Vec<VectorDiff<_>>>, _>, _>, _>` to implement `Unpin`
+note: required because it appears within the type `__Origin<'_, Once<Ready<Vec<VectorDiff<RoomListItem>>>>, Head<_, _>>`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pin-project-lite-0.2.18/src/lib.rs:1253:21
+     |
+1253 |           $vis struct __Origin<'__pin, $($impl_generics)*>
+     |                       ^^^^^^^^
+     |
+    ::: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-util-0.3.34/src/stream/stream/chain.rs:7:1
+     |
+   7 | / pin_project! {
+   8 | |     /// Stream for the [`chain`](super::StreamExt::chain) method.
+   9 | |     #[derive(Debug)]
+  10 | |     #[must_use = "streams do nothing unless polled"]
+...    |
+  17 | | }
+     | |_- in this macro invocation
+     = note: required for `Chain<Once<Ready<Vec<VectorDiff<RoomListItem>>>>, Head<_, _>>` to implement `Unpin`
+note: required because it appears within the type `__Origin<'_, Chain<Once<Ready<Vec<VectorDiff<RoomListItem>>>>, _>>`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pin-project-lite-0.2.18/src/lib.rs:1253:21
+     |
+1253 |           $vis struct __Origin<'__pin, $($impl_generics)*>
+     |                       ^^^^^^^^
+     |
+    ::: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/async-rx-0.1.3/src/lib.rs:258:1
+     |
+ 258 | / pin_project! {
+ 259 | |     #[project = SwitchStateProj]
+ 260 | |     enum SwitchState<S> {
+ 261 | |         None,
+...    |
+ 267 | | }
+     | |_- in this macro invocation
+     = note: required for `SwitchState<Chain<Once<Ready<Vec<VectorDiff<RoomListItem>>>>, _>>` to implement `Unpin`
+note: required because it appears within the type `__Origin<'_, AsyncStream<Chain<Once<Ready<Vec<_>>>, _>, _>>`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pin-project-lite-0.2.18/src/lib.rs:1253:21
+     |
+1253 |           $vis struct __Origin<'__pin, $($impl_generics)*>
+     |                       ^^^^^^^^
+     |
+    ::: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/async-rx-0.1.3/src/lib.rs:248:1
+     |
+ 248 | / pin_project! {
+ 249 | |     /// Stream adapter produced by [`StreamExt::switch`].
+ 250 | |     pub struct Switch<S: Stream> {
+ 251 | |         #[pin]
+...    |
+ 256 | | }
+     | |_- in this macro invocation
+     = note: required for `Switch<AsyncStream<Chain<Once<Ready<Vec<VectorDiff<_>>>>, _>, _>>` to implement `Unpin`
+note: required because it appears within the type `impl Stream<Item = Vec<VectorDiff<RoomListItem>>> + '_`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/matrix-sdk-ui-0.16.1/src/room_list_service/room_list.rs:165:11
+     |
+ 165 |     ) -> (impl Stream<Item = Vec<VectorDiff<RoomListItem>>> + '_, RoomListDynamicEntriesController)
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: required because it appears within the type `impl Stream<Item = Vec<VectorDiff<RoomListItem>>> + '_`
+    --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/matrix-sdk-ui-0.16.1/src/room_list_service/room_list.rs:146:11
+     |
+ 146 |     ) -> (impl Stream<Item = Vec<VectorDiff<RoomListItem>>> + '_, RoomListDynamicEntriesController)
+     |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     = note: required for `Next<'_, impl Stream<Item = Vec<VectorDiff<RoomListItem>>> + '_>` to implement `futures_util::Future`
+     = note: required for `Next<'_, impl Stream<Item = Vec<VectorDiff<RoomListItem>>> + '_>` to implement `std::future::IntoFuture`
+     = note: the full name for the type has been written to '/home/runner/work/cinny-android/cinny-android/cinny-android/rust-core/target/debug/build/cinny_core/5441533b1df4ab93/out/cinny_core.long-type-17488701977525665592.txt'
+     = note: consider using `--verbose` to print the full type name to the console
+     = note: this error originates in the macro `$crate::__pin_project_make_unpin_impl` which comes from the expansion of the macro `pin_project` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: remove the `.await`
+     |
+ 352 -                     while let Some(diffs) = stream.next().await {
+ 352 +                     while let Some(diffs) = stream.next() {
+     |
+error[E0308]: mismatched types
+   --> src/client.rs:354:40
+    |
+354 | ...                   diff.apply(&mut current_items);
+    |                            ----- ^^^^^^^^^^^^^^^^^^ expected `&mut GenericVector<RoomListItem, ArcK>`, found `&mut Vec<_>`
+    |                            |
+    |                            arguments to this method are incorrect
+    |
+    = note: expected mutable reference `&mut imbl::vector::GenericVector<RoomListItem, archery::shared_pointer::kind::arc::ArcK>`
+               found mutable reference `&mut Vec<_>`
+note: method defined here
+   --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/eyeball-im-0.8.0/src/vector.rs:433:12
+    |
+433 |     pub fn apply(self, vec: &mut Vector<T>) {
+    |            ^^^^^
+error[E0308]: mismatched types
+   --> src/push.rs:103:15
+    |
+103 |       if let Ok(AnyTimelineEvent::MessageLike(AnyMessageLikeEvent::RoomMessage(
+    |  _______________^
+104 | |         RoomMessageEvent::Original(orig),
+105 | |     ))) = timeline_event.raw().deserialize()
+    | |      ^    ---------------------------------- this expression has type `Result<AnySyncTimelineEvent, serde_json::Error>`
+    | |______|
+    |        expected `AnySyncTimelineEvent`, found `AnyTimelineEvent`
+error[E0061]: this function takes 2 arguments but 1 argument was supplied
+   --> src/spaces.rs:251:25
+    |
+251 |         let enc_event = InitialStateEvent::new(RoomEncryptionEventContent::with_recommended_defaults());
+    |                         ^^^^^^^^^^^^^^^^^^^^^^--------------------------------------------------------- argument #2 is missing
+    |
+note: associated function defined here
+   --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ruma-events-0.32.1/src/kinds.rs:530:12
+    |
+530 |     pub fn new(state_key: C::StateKey, content: C) -> Self {
+    |            ^^^
+help: provide the argument
+    |
+251 |         let enc_event = InitialStateEvent::new(RoomEncryptionEventContent::with_recommended_defaults(), /* content */);
+    |                                                                                                       +++++++++++++++
+error[E0308]: mismatched types
+   --> src/spaces.rs:353:26
+    |
+353 |             power_level: m.power_level(),
+    |                          ^^^^^^^^^^^^^^^ expected `i64`, found `UserPowerLevel`
+error[E0599]: no method named `timestamp` found for struct `matrix_sdk_base::latest_event::LatestEvent` in the current scope
+   --> src/spaces.rs:364:26
+    |
+364 |     let ts: u64 = latest.timestamp().map(|t| t.0.into()).unwrap_or(0);
+    |                          ^^^^^^^^^ method not found in `matrix_sdk_base::latest_event::LatestEvent`
+error[E0599]: no method named `sender` found for struct `matrix_sdk_base::latest_event::LatestEvent` in the current scope
+   --> src/spaces.rs:365:25
+    |
+365 |     let sender = latest.sender().map(|s| s.to_string());
+    |                         ^^^^^^ method not found in `matrix_sdk_base::latest_event::LatestEvent`
+error[E0599]: no method named `deserialize` found for reference `&TimelineEvent` in the current scope
+   --> src/spaces.rs:370:25
+    |
+370 |     )) = latest.event().deserialize()
+    |                         ^^^^^^^^^^^
+    |
+help: there is a method `serialize` with a similar name, but with different arguments
+   --> /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_core-1.0.229/src/ser/mod.rs:265:5
+    |
+265 | /     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+266 | |     where
+267 | |         S: Serializer;
+    | |______________________^
+error[E0599]: no method named `json` found for enum `RawAnySyncOrStrippedState` in the current scope
+   --> src/spaces.rs:391:77
+    |
+391 |         if let Ok(json_val) = serde_json::from_str::<serde_json::Value>(raw.json().get()) {
+    |                                                                             ^^^^ method not found in `RawAnySyncOrStrippedState`
+error[E0308]: mismatched types
+   --> src/timeline.rs:58:47
+    |
+ 58 |     let initial_messages = map_timeline_items(&initial_items, &own_user_id, None);
+    |                            ------------------ ^^^^^^^^^^^^^^ expected `&[Arc<TimelineItem>]`, found `&GenericVector<Arc<TimelineItem>, ArcK>`
+    |                            |
+    |                            arguments to this function are incorrect
+    |
+    = note: expected reference `&[Arc<TimelineItem>]`
+               found reference `&imbl::vector::GenericVector<Arc<TimelineItem>, archery::shared_pointer::kind::arc::ArcK>`
+note: function defined here
+   --> src/timeline.rs:263:4
+    |
+263 | fn map_timeline_items(
+    |    ^^^^^^^^^^^^^^^^^^
+264 |     items: &[Arc<TimelineItem>],
+    |     ---------------------------
+error[E0308]: mismatched types
+   --> src/timeline.rs:69:45
+    |
+ 69 |             let mapped = map_timeline_items(&current, &own_for_task, None);
+    |                          ------------------ ^^^^^^^^ expected `&[Arc<TimelineItem>]`, found `&GenericVector<Arc<TimelineItem>, ArcK>`
+    |                          |
+    |                          arguments to this function are incorrect
+    |
+    = note: expected reference `&[Arc<TimelineItem>]`
+               found reference `&imbl::vector::GenericVector<Arc<TimelineItem>, archery::shared_pointer::kind::arc::ArcK>`
+note: function defined here
+   --> src/timeline.rs:263:4
+    |
+263 | fn map_timeline_items(
+    |    ^^^^^^^^^^^^^^^^^^
+264 |     items: &[Arc<TimelineItem>],
+    |     ---------------------------
+error[E0308]: mismatched types
+   --> src/timeline.rs:107:28
+    |
+107 |         map_timeline_items(&initial_items, &own_user_id, Some(root_event_id.as_str()));
+    |         ------------------ ^^^^^^^^^^^^^^ expected `&[Arc<TimelineItem>]`, found `&GenericVector<Arc<TimelineItem>, ArcK>`
+    |         |
+    |         arguments to this function are incorrect
+    |
+    = note: expected reference `&[Arc<TimelineItem>]`
+               found reference `&imbl::vector::GenericVector<Arc<TimelineItem>, archery::shared_pointer::kind::arc::ArcK>`
+note: function defined here
+   --> src/timeline.rs:263:4
+    |
+263 | fn map_timeline_items(
+    |    ^^^^^^^^^^^^^^^^^^
+264 |     items: &[Arc<TimelineItem>],
+    |     ---------------------------
+error[E0308]: mismatched types
+   --> src/timeline.rs:118:45
+    |
+118 |             let mapped = map_timeline_items(&current, &own_user_id, Some(root_for_task.as_str()));
+    |                          ------------------ ^^^^^^^^ expected `&[Arc<TimelineItem>]`, found `&GenericVector<Arc<TimelineItem>, ArcK>`
+    |                          |
+    |                          arguments to this function are incorrect
+    |
+    = note: expected reference `&[Arc<TimelineItem>]`
+               found reference `&imbl::vector::GenericVector<Arc<TimelineItem>, archery::shared_pointer::kind::arc::ArcK>`
+note: function defined here
+   --> src/timeline.rs:263:4
+    |
+263 | fn map_timeline_items(
+    |    ^^^^^^^^^^^^^^^^^^
+264 |     items: &[Arc<TimelineItem>],
+    |     ---------------------------
+error[E0277]: the trait bound `AnyMessageLikeEventContent: From<RoomMessageEventContentWithoutRelation>` is not satisfied
+   --> src/timeline.rs:134:27
+    |
+134 |             .send(content.into())
+    |                           ^^^^ the trait `From<RoomMessageEventContentWithoutRelation>` is not implemented for `AnyMessageLikeEventContent`
+    |
+    = help: `AnyMessageLikeEventContent` implements trait `From<T>`:
+              From<BeaconEventContent>
+              From<CallAnswerEventContent>
+              From<CallCandidatesEventContent>
+              From<CallHangupEventContent>
+              From<CallInviteEventContent>
+              From<CallNegotiateEventContent>
+              From<CallNotifyEventContent>
+              From<CallRejectEventContent>
+            and 24 others
+    = note: required for `RoomMessageEventContentWithoutRelation` to implement `Into<AnyMessageLikeEventContent>`
+error[E0277]: the trait bound `AnyMessageLikeEventContent: From<RoomMessageEventContentWithoutRelation>` is not satisfied
+   --> src/timeline.rs:161:31
+    |
+161 |                 .send(content.into())
+    |                               ^^^^ the trait `From<RoomMessageEventContentWithoutRelation>` is not implemented for `AnyMessageLikeEventContent`
+    |
+    = help: `AnyMessageLikeEventContent` implements trait `From<T>`:
+              From<BeaconEventContent>
+              From<CallAnswerEventContent>
+              From<CallCandidatesEventContent>
+              From<CallHangupEventContent>
+              From<CallInviteEventContent>
+              From<CallNegotiateEventContent>
+              From<CallNotifyEventContent>
+              From<CallRejectEventContent>
+            and 24 others
+    = note: required for `RoomMessageEventContentWithoutRelation` to implement `Into<AnyMessageLikeEventContent>`
+error[E0277]: the trait bound `EditedContent: From<RoomMessageEventContentWithoutRelation>` is not satisfied
+   --> src/timeline.rs:188:36
+    |
+188 |             .edit(&item_id, edited.into())
+    |                                    ^^^^ the trait `From<RoomMessageEventContentWithoutRelation>` is not implemented for `EditedContent`
+    |
+    = note: required for `RoomMessageEventContentWithoutRelation` to implement `Into<EditedContent>`
+error[E0308]: mismatched types
+   --> src/timeline.rs:252:28
+    |
+252 |         map_timeline_items(&items, &self.own_user_id, None)
+    |         ------------------ ^^^^^^ expected `&[Arc<TimelineItem>]`, found `&GenericVector<Arc<TimelineItem>, ArcK>`
+    |         |
+    |         arguments to this function are incorrect
+    |
+    = note: expected reference `&[Arc<TimelineItem>]`
+               found reference `&imbl::vector::GenericVector<Arc<TimelineItem>, archery::shared_pointer::kind::arc::ArcK>`
+note: function defined here
+   --> src/timeline.rs:263:4
+    |
+263 | fn map_timeline_items(
+    |    ^^^^^^^^^^^^^^^^^^
+264 |     items: &[Arc<TimelineItem>],
+    |     ---------------------------
+error[E0277]: the trait bound `ActiveRoomTimeline: FfiConverterArc<_>` is not satisfied
+   --> src/client.rs:124:1
+    |
+124 | #[uniffi::export(async_runtime = "tokio")]
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ unsatisfied trait bound
+    |
+help: the trait `FfiConverterArc<_>` is not implemented for `ActiveRoomTimeline`
+   --> src/timeline.rs:33:1
+    |
+ 33 | pub struct ActiveRoomTimeline {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+help: the trait `FfiConverterArc<UT>` is implemented for `CinnyClient`
+   --> src/client.rs:102:10
+    |
+102 | #[derive(uniffi::Object)]
+    |          ^^^^^^^^^^^^^^
+    = note: required for `Arc<ActiveRoomTimeline>` to implement `FfiConverter<_>`
+    = note: this error originates in the attribute macro `uniffi::export` which comes from the expansion of the derive macro `uniffi::Object` (in Nightly builds, run with -Z macro-backtrace for more info)
+error[E0599]: no method named `downgrade` found for reference `&matrix_sdk::Client` in the current scope
+  --> src/crypto.rs:55:30
+   |
+55 |     let client_weak = client.downgrade();
+   |                              ^^^^^^^^^ method not found in `&matrix_sdk::Client`
+error[E0369]: binary operation `==` cannot be applied to type `&Vec<SasEmojiItem>`
+   --> src/models.rs:190:9
+    |
+175 | #[derive(Debug, Clone, PartialEq, Eq, uniffi::Enum)]
+    |                        --------- in this derive macro expansion
+...
+190 |         emojis: Vec<SasEmojiItem>,
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+note: an implementation of `PartialEq` might be missing for `SasEmojiItem`
+   --> src/models.rs:170:1
+    |
+170 | pub struct SasEmojiItem {
+    | ^^^^^^^^^^^^^^^^^^^^^^^ must implement `PartialEq`
+help: consider annotating `SasEmojiItem` with `#[derive(PartialEq)]`
+    |
+170 + #[derive(PartialEq)]
+171 | pub struct SasEmojiItem {
+    |
+error[E0277]: the trait bound `SasEmojiItem: std::cmp::Eq` is not satisfied
+   --> src/models.rs:190:9
+    |
+175 | #[derive(Debug, Clone, PartialEq, Eq, uniffi::Enum)]
+    |                                   -- in this derive macro expansion
+...
+190 |         emojis: Vec<SasEmojiItem>,
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `std::cmp::Eq` is not implemented for `SasEmojiItem`
+    |
+help: the trait `std::cmp::Eq` is conditionally implemented for `Vec<T, A>`
+   --> /rustc/0ef1bc386059596dada8fb65b50425aab2ea637a/library/alloc/src/vec/mod.rs:4304:8
+    |
+    = note: unsatisfied requirement introduced here: `SasEmojiItem: std::cmp::Eq`
+    = note: required for `Vec<SasEmojiItem>` to implement `std::cmp::Eq`
+note: required by a bound in `std::cmp::AssertParamIsEq`
+   --> /rustc/0ef1bc386059596dada8fb65b50425aab2ea637a/library/core/src/cmp.rs:395:0
+help: consider annotating `SasEmojiItem` with `#[derive(Eq)]`
+    |
+170 + #[derive(Eq)]
+171 | pub struct SasEmojiItem {
+    |
+error[E0599]: `TimelineEventItemId` doesn't implement `std::fmt::Display`
+   --> src/timeline.rs:285:47
+    |
+285 |         .unwrap_or_else(|| event.identifier().to_string());
+    |                                               ^^^^^^^^^ method cannot be called on `TimelineEventItemId` due to unsatisfied trait bounds
+    |
+   ::: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/matrix-sdk-ui-0.16.1/src/timeline/event_item/mod.rs:96:1
+    |
+ 96 | pub enum TimelineEventItemId {
+    | ---------------------------- doesn't satisfy `TimelineEventItemId: ToString` or `TimelineEventItemId: std::fmt::Display`
+    |
+    = note: the following trait bounds were not satisfied:
+            `TimelineEventItemId: std::fmt::Display`
+            which is required by `TimelineEventItemId: ToString`
+error[E0599]: no method named `sender_profile` found for reference `&Box<EmbeddedEvent>` in the current scope
+   --> src/timeline.rs:450:46
+    |
+450 |             let sender_name = match embedded.sender_profile() {
+    |                                              ^^^^^^^^^^^^^^-- help: remove the arguments
+    |                                              |
+    |                                              field, not a method
+error[E0599]: no method named `sender` found for reference `&Box<EmbeddedEvent>` in the current scope
+   --> src/timeline.rs:454:49
+    |
+454 |                     .unwrap_or_else(|| embedded.sender().to_string()),
+    |                                                 ^^^^^^-- help: remove the arguments
+    |                                                 |
+    |                                                 field, not a method
+error[E0599]: no method named `sender` found for reference `&Box<EmbeddedEvent>` in the current scope
+   --> src/timeline.rs:455:31
+    |
+455 |                 _ => embedded.sender().to_string(),
+    |                               ^^^^^^-- help: remove the arguments
+    |                               |
+    |                               field, not a method
+error[E0599]: no method named `content` found for reference `&Box<EmbeddedEvent>` in the current scope
+   --> src/timeline.rs:457:39
+    |
+457 |             let body = match embedded.content() {
+    |                                       ^^^^^^^-- help: remove the arguments
+    |                                       |
+    |                                       field, not a method
+Some errors have detailed explanations: E0061, E0277, E0308, E0369, E0432, E0433, E0599, E0603.
+For more information about an error, try `rustc --explain E0061`.
+warning: `cinny_core` (lib) generated 6 warnings (1 duplicate)
+error: could not compile `cinny_core` (lib) due to 44 previous errors; 9 warnings emitted
+warning: build failed, waiting for other jobs to finish...
+warning: `cinny_core` (lib test) generated 6 warnings (5 duplicates)
+error: could not compile `cinny_core` (lib test) due to 44 previous errors; 9 warnings emitted
+Error: Process completed with exit code 101.

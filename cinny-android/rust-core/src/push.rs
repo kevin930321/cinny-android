@@ -1,12 +1,13 @@
 use matrix_sdk::{
     ruma::{
-        api::client::push::set_pusher::v3::{
-            Pusher, PusherAction, PusherData, PusherIds, PusherInit, Request as SetPusherRequest,
+        api::client::push::{
+            set_pusher::v3::Request as SetPusherRequest, HttpPusherData, Pusher, PusherIds,
+            PusherInit, PusherKind,
         },
-        events::room::message::MessageType,
-        events::AnyTimelineEvent,
-        events::AnyMessageLikeEvent,
-        events::room::message::RoomMessageEvent,
+        events::{
+            room::message::{MessageType, SyncRoomMessageEvent},
+            AnySyncMessageLikeEvent, AnySyncTimelineEvent,
+        },
     },
     Client,
 };
@@ -33,23 +34,19 @@ pub async fn register_http_pusher(
         });
     }
 
-    let mut data = PusherData::new();
-    data.url = Some(gateway_url);
+    let mut data = HttpPusherData::new(gateway_url);
     data.format = Some("event_id_only".into());
 
-    let pusher = Pusher::new(
-        PusherInit {
-            ids: PusherIds::new(push_key, app_id),
-            kind: "http".into(),
-            app_display_name,
-            device_display_name,
-            profile_tag: None,
-            lang: "en".to_string(),
-            data,
-        },
-    );
+    let pusher = Pusher::from(PusherInit {
+        ids: PusherIds::new(push_key, app_id),
+        kind: PusherKind::Http(data),
+        app_display_name,
+        device_display_name,
+        profile_tag: None,
+        lang: "en".to_string(),
+    });
 
-    let request = SetPusherRequest::new(PusherAction::Post(pusher));
+    let request = SetPusherRequest::post(pusher);
     client
         .send(request)
         .await
@@ -100,8 +97,8 @@ pub async fn process_push_event(
         "New message".to_string()
     };
 
-    if let Ok(AnyTimelineEvent::MessageLike(AnyMessageLikeEvent::RoomMessage(
-        RoomMessageEvent::Original(orig),
+    if let Ok(AnySyncTimelineEvent::MessageLike(AnySyncMessageLikeEvent::RoomMessage(
+        SyncRoomMessageEvent::Original(orig),
     ))) = timeline_event.raw().deserialize()
     {
         sender_name = orig.sender.to_string();

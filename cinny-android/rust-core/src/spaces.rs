@@ -1,17 +1,18 @@
 use std::collections::{HashMap, HashSet};
 
 use matrix_sdk::{
+    deserialized_responses::RawAnySyncOrStrippedState,
     room::Room,
     ruma::{
         api::client::{
-            membership::create_room::v3::Request as CreateRoomRequest,
-            room::Visibility,
+            room::{create_room::v3::Request as CreateRoomRequest, Visibility},
             space::get_hierarchy::v1::Request as SpaceHierarchyRequest,
         },
         events::{
             room::{
                 encryption::RoomEncryptionEventContent,
                 message::{MessageType, SyncRoomMessageEvent},
+                power_levels::UserPowerLevel,
             },
             InitialStateEvent, StateEventType,
         },
@@ -248,7 +249,9 @@ pub async fn create_room(
     req.invite = invites;
 
     if is_encrypted {
-        let enc_event = InitialStateEvent::new(RoomEncryptionEventContent::with_recommended_defaults());
+        let enc_event = InitialStateEvent::with_empty_state_key(
+            RoomEncryptionEventContent::with_recommended_defaults(),
+        );
         req.initial_state = vec![enc_event.to_raw_any()];
     }
 
@@ -346,11 +349,17 @@ pub async fn list_room_members(
 
     let mut out: Vec<RoomMemberSummary> = members
         .into_iter()
-        .map(|m| RoomMemberSummary {
-            user_id: m.user_id().to_string(),
-            display_name: m.name().to_string(),
-            avatar_mxc: m.avatar_url().map(|u| u.to_string()),
-            power_level: m.power_level(),
+        .map(|m| {
+            let power_level = match m.power_level() {
+                UserPowerLevel::Infinite => i64::MAX,
+                UserPowerLevel::Int(v) => i64::from(v),
+            };
+            RoomMemberSummary {
+                user_id: m.user_id().to_string(),
+                display_name: m.name().to_string(),
+                avatar_mxc: m.avatar_url().map(|u| u.to_string()),
+                power_level,
+            }
         })
         .collect();
     out.sort_by(|a, b| b.power_level.cmp(&a.power_level).then_with(|| a.display_name.cmp(&b.display_name)));
@@ -361,14 +370,20 @@ async fn extract_latest_event_preview(room: &Room) -> (Option<String>, Option<St
     let Some(latest) = room.latest_event() else {
         return (None, None, 0);
     };
-    let ts: u64 = latest.timestamp().map(|t| t.0.into()).unwrap_or(0);
-    let sender = latest.sender().map(|s| s.to_string());
+    let mut ts: u64 = latest.event().timestamp().map(|t| t.into()).unwrap_or(0);
+    let mut sender = latest.sender_display_name().map(|s| s.to_string());
     if let Ok(matrix_sdk::ruma::events::AnySyncTimelineEvent::MessageLike(
         matrix_sdk::ruma::events::AnySyncMessageLikeEvent::RoomMessage(
             SyncRoomMessageEvent::Original(orig),
         ),
-    )) = latest.event().deserialize()
+    )) = latest.event().raw().deserialize()
     {
+        if sender.is_none() {
+            sender = Some(orig.sender.to_string());
+        }
+        if ts == 0 {
+            ts = orig.origin_server_ts.0.into();
+        }
         let preview = match orig.content.msgtype {
             MessageType::Text(t) => t.body,
             MessageType::Notice(n) => n.body,
@@ -388,7 +403,11 @@ async fn extract_space_children(room: &Room) -> Vec<String> {
     };
     let mut children = Vec::new();
     for raw in events {
-        if let Ok(json_val) = serde_json::from_str::<serde_json::Value>(raw.json().get()) {
+        let raw_json_str = match &raw {
+            RawAnySyncOrStrippedState::Sync(r) => r.json().get(),
+            RawAnySyncOrStrippedState::Stripped(r) => r.json().get(),
+        };
+        if let Ok(json_val) = serde_json::from_str::<serde_json::Value>(raw_json_str) {
             let has_via = json_val
                 .get("content")
                 .and_then(|c| c.get("via"))

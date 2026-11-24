@@ -52,15 +52,10 @@ pub fn register_incoming_verification_handler(
     client: &Client,
     registry: Arc<VerificationRegistry>,
 ) {
-    let client_weak = client.downgrade();
     client.add_event_handler(
-        move |ev: ToDeviceKeyVerificationRequestEvent| {
+        move |ev: ToDeviceKeyVerificationRequestEvent, client: Client| {
             let registry = Arc::clone(&registry);
-            let client_weak = client_weak.clone();
             async move {
-                let Some(client) = client_weak.upgrade() else {
-                    return;
-                };
                 let flow_id = ev.content.transaction_id.to_string();
                 let Some(request) = client
                     .encryption()

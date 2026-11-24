@@ -4,11 +4,14 @@ use futures_util::StreamExt;
 use matrix_sdk::{
     authentication::matrix::MatrixSession,
     config::SyncSettings,
-    cross_process_lock::CrossProcessLockConfig,
     ruma::api::client::session::get_login_types::v3::LoginType,
-    Client, RoomLoadSettings, SessionMeta, SessionTokens,
+    store::RoomLoadSettings,
+    Client, SessionMeta, SessionTokens,
 };
-use matrix_sdk_ui::sync_service::{State as SyncServiceState, SyncService};
+use matrix_sdk_ui::{
+    eyeball_im::Vector,
+    sync_service::{State as SyncServiceState, SyncService},
+};
 use tokio::sync::Mutex;
 
 use crate::{
@@ -137,7 +140,7 @@ impl CinnyClient {
         let client = Client::builder()
             .homeserver_url(&homeserver_url)
             .sqlite_store(&data_dir, sqlite_passphrase.as_deref())
-            .cross_process_store_config(CrossProcessLockConfig::SingleProcess)
+            .cross_process_store_locks_holder_name("cinny_android".to_owned())
             .build()
             .await?;
 
@@ -178,7 +181,7 @@ impl CinnyClient {
         let client = Client::builder()
             .homeserver_url(&homeserver_url)
             .sqlite_store(&data_dir, sqlite_passphrase.as_deref())
-            .cross_process_store_config(CrossProcessLockConfig::SingleProcess)
+            .cross_process_store_locks_holder_name("cinny_android".to_owned())
             .build()
             .await?;
 
@@ -216,7 +219,7 @@ impl CinnyClient {
         let client = Client::builder()
             .homeserver_url(&session.homeserver_url)
             .sqlite_store(&data_dir, sqlite_passphrase.as_deref())
-            .cross_process_store_config(CrossProcessLockConfig::SingleProcess)
+            .cross_process_store_locks_holder_name("cinny_android".to_owned())
             .build()
             .await?;
 
@@ -347,14 +350,17 @@ impl CinnyClient {
             let client_for_rooms = client.clone();
             let room_task = tokio::spawn(async move {
                 if let Ok(all_rooms) = room_list_service.all_rooms().await {
-                    let (mut stream, _controller) = all_rooms.entries_with_dynamic_adapters(50);
-                    let mut current_items = Vec::new();
+                    let (stream, controller) = all_rooms.entries_with_dynamic_adapters(50);
+                    controller.set_filter(Box::new(|_| true));
+                    let mut stream = std::pin::pin!(stream);
+                    let mut current_items = Vector::new();
                     while let Some(diffs) = stream.next().await {
                         for diff in diffs {
                             diff.apply(&mut current_items);
                         }
+                        let items_vec: Vec<_> = current_items.iter().cloned().collect();
                         let (spaces, rooms) =
-                            build_space_hierarchy_from_items(&client_for_rooms, &current_items)
+                            build_space_hierarchy_from_items(&client_for_rooms, &items_vec)
                                 .await;
                         obs_rooms.on_spaces_updated(spaces, rooms);
                     }
@@ -709,7 +715,9 @@ impl CinnyClient {
     pub fn data_directory(&self) -> String {
         self.data_dir.to_string_lossy().to_string()
     }
+}
 
+impl CinnyClient {
     async fn get_timeline(
         &self,
         room_id: &str,

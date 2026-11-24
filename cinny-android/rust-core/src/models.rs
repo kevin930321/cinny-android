@@ -166,7 +166,7 @@ pub struct SecretBackupStatus {
     pub secret_storage_exists: bool,
 }
 
-#[derive(Debug, Clone, uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
 pub struct SasEmojiItem {
     pub symbol: String,
     pub description: String,
