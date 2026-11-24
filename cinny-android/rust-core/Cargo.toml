@@ -47,6 +47,6 @@ tracing-android = "0.2"
 [profile.release]
 # Keep dynamic export symbols & UniFFI metadata intact; strip only debug info via llvm-strip in build script
 opt-level = "z"
-lto = true
+lto = "thin"
 codegen-units = 1
 strip = "none"

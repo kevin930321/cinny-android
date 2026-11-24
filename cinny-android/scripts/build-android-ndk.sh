@@ -7,9 +7,9 @@ ANDROID_MAIN="$ROOT_DIR/android/app/src/main"
 JNI_LIBS="$ANDROID_MAIN/jniLibs"
 KOTLIN_OUT="$ANDROID_MAIN/java"
 
-echo "1. Building unstripped host library for UniFFI Kotlin binding generation..."
+echo "1. Building unstripped host library & uniffi-bindgen for UniFFI Kotlin binding generation..."
 cd "$RUST_DIR"
-cargo build --release
+cargo build --release --lib --bin uniffi-bindgen
 
 HOST_LIB="$RUST_DIR/target/release/libcinny_core.so"
 if [[ "$(uname -s)" == "Darwin" ]]; then
@@ -17,18 +17,18 @@ if [[ "$(uname -s)" == "Darwin" ]]; then
 fi
 
 echo "2. Generating Kotlin UniFFI bindings into android/app/src/main/java..."
-cargo run --bin uniffi-bindgen -- generate \
+"$RUST_DIR/target/release/uniffi-bindgen" generate \
   --library "$HOST_LIB" \
   --language kotlin \
   --out-dir "$KOTLIN_OUT"
 
-echo "3. Compiling Rust matrix-sdk core for Android ABIs via cargo-ndk..."
+echo "3. Compiling Rust matrix-sdk core library for Android ABIs via cargo-ndk..."
 cargo ndk \
   -t arm64-v8a \
   -t armeabi-v7a \
   -t x86_64 \
   -o "$JNI_LIBS" \
-  build --release
+  build --release --lib
 
 echo "4. Stripping DWARF debug info only (preserving .dynsym for JNA/UniFFI)..."
 if [[ -n "${ANDROID_NDK_HOME:-}" ]]; then
