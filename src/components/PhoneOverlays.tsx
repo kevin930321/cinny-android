@@ -8,8 +8,10 @@ import {
   Hash,
   Inbox,
   Lock,
+  Search,
   ShieldCheck,
   User,
+  UserPlus,
   Users,
   X,
 } from 'lucide-react';
@@ -18,11 +20,12 @@ import {
   CinnyMessageLayout,
   CinnySettingsState,
   CinnyThemeMode,
+  RoomMemberEntry,
   RoomNotificationLevel,
   RoomSummary,
   TimelineMessage,
 } from '../lib/cinnyEngine';
-import { PhoneThemeClasses } from './phoneThemeClasses';
+import { getMxidTextClass, PhoneThemeClasses } from './phoneThemeClasses';
 
 const THEME_OPTIONS: Array<{ mode: CinnyThemeMode; label: string; swatchBg: string; swatchAccent: string }> = [
   { mode: 'Light', label: 'Light', swatchBg: 'bg-[#F5F5F5]', swatchAccent: 'bg-[#1245A8]' },
@@ -231,11 +234,13 @@ export function PhoneSettingsOverlay({
 
 export function PhoneRoomSettingsOverlay({
   room,
+  members = [],
   theme,
   onClose,
   onSave,
 }: {
   room: RoomSummary;
+  members?: RoomMemberEntry[];
   theme: PhoneThemeClasses;
   onClose: () => void;
   onSave: (patch: { name?: string; topic?: string; notificationLevel?: RoomNotificationLevel }) => void;
@@ -348,21 +353,32 @@ export function PhoneRoomSettingsOverlay({
         <section className={`rounded-2xl border p-3 space-y-2 ${theme.line} ${theme.surface}`}>
           <div className={`flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider ${theme.muted}`}>
             <Users className="h-3.5 w-3.5" />
-            <span>成員名單 (Members)</span>
+            <span>成員名單 (Members · {members.length || 3})</span>
           </div>
           <div className="space-y-1.5 text-[11px]">
-            <div className="flex items-center justify-between">
-              <span>You (@you:matrix.org)</span>
-              <span className={`rounded px-1.5 py-0.5 text-[10px] ${theme.primaryContainer} ${theme.onPrimaryContainer}`}>Admin</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span>Ajay (@ajbura:matrix.org)</span>
-              <span className={`rounded px-1.5 py-0.5 text-[10px] ${theme.surfaceVar}`}>Moderator</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span>Lin (@lin:matrix.org)</span>
-              <span className={`rounded px-1.5 py-0.5 text-[10px] ${theme.surfaceVar}`}>Member</span>
-            </div>
+            {(members.length > 0
+              ? members
+              : [
+                  { userId: '@you:matrix.org', displayName: 'You', powerLevel: 100 },
+                  { userId: '@ajbura:matrix.org', displayName: 'Ajay', powerLevel: 50 },
+                  { userId: '@lin:matrix.org', displayName: 'Lin', powerLevel: 0 },
+                ]
+            ).map((m) => (
+              <div key={m.userId} className="flex items-center justify-between gap-2">
+                <span className="truncate">
+                  {m.displayName} ({m.userId})
+                </span>
+                <span
+                  className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] ${
+                    m.powerLevel >= 100
+                      ? `${theme.primaryContainer} ${theme.onPrimaryContainer}`
+                      : theme.surfaceVar
+                  }`}
+                >
+                  {m.powerLevel >= 100 ? 'Admin' : m.powerLevel >= 50 ? 'Moderator' : 'Member'}
+                </span>
+              </div>
+            ))}
           </div>
         </section>
       </div>
@@ -723,6 +739,206 @@ export function PhoneEventSourceModal({
         <pre className={`max-h-60 overflow-auto rounded-xl border p-2.5 font-mono text-[10px] leading-relaxed ${theme.line} ${theme.bg}`}>
           <code>{jsonText}</code>
         </pre>
+      </div>
+    </div>
+  );
+}
+
+export function PhoneMembersOverlay({
+  room,
+  members,
+  theme,
+  onClose,
+  onInviteUser,
+}: {
+  room: RoomSummary;
+  members: RoomMemberEntry[];
+  theme: PhoneThemeClasses;
+  onClose: () => void;
+  onInviteUser: (userId: string) => void;
+}) {
+  const [query, setQuery] = useState('');
+  const [inviteId, setInviteId] = useState('');
+
+  const filtered = [...members]
+    .sort((a, b) => b.powerLevel - a.powerLevel)
+    .filter(
+      (m) =>
+        !query.trim() ||
+        m.displayName.toLowerCase().includes(query.toLowerCase()) ||
+        m.userId.toLowerCase().includes(query.toLowerCase())
+    );
+
+  const handleInvite = (e: FormEvent) => {
+    e.preventDefault();
+    const clean = inviteId.trim();
+    if (!clean) return;
+    onInviteUser(clean);
+    setInviteId('');
+  };
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="聊天室成員 Members"
+      className={`absolute inset-0 z-40 flex flex-col ${theme.bg} ${theme.text}`}
+    >
+      <div className={`flex items-center justify-between border-b px-3 py-2.5 ${theme.line} ${theme.surface}`}>
+        <div className="flex items-center gap-2 min-w-0">
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="關閉成員列表"
+            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${theme.hoverSurface}`}
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+          <div className="min-w-0">
+            <h3 className="truncate text-sm font-semibold">聊天室成員 ({members.length})</h3>
+            <p className={`truncate text-[10px] ${theme.muted}`}>#{room.name}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-2 p-3 border-b border-current/10">
+        <form onSubmit={handleInvite} className="flex gap-1.5">
+          <input
+            type="text"
+            value={inviteId}
+            onChange={(e) => setInviteId(e.target.value)}
+            placeholder="邀請 @user:matrix.org..."
+            aria-label="邀請 Matrix ID"
+            className={`min-h-[36px] flex-1 rounded-xl border px-2.5 text-xs outline-none ${theme.line} ${theme.surface}`}
+          />
+          <button
+            type="submit"
+            disabled={!inviteId.trim().startsWith('@') || !inviteId.includes(':')}
+            className={`inline-flex shrink-0 items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-semibold disabled:opacity-40 ${theme.primaryBg} ${theme.onPrimary}`}
+          >
+            <UserPlus className="h-3.5 w-3.5" />
+            <span>邀請</span>
+          </button>
+        </form>
+
+        <div className="relative">
+          <Search
+            className={`pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 ${theme.muted}`}
+            aria-hidden="true"
+          />
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="搜尋成員名稱或 MXID..."
+            aria-label="搜尋聊天室成員"
+            className={`min-h-[34px] w-full rounded-xl border pr-3 pl-8 text-xs outline-none ${theme.line} ${theme.surface}`}
+          />
+        </div>
+      </div>
+
+      <div className="flex-1 space-y-1.5 overflow-y-auto p-3">
+        {filtered.length === 0 ? (
+          <div className={`py-8 text-center text-xs ${theme.muted}`}>找不到符合條件的成員</div>
+        ) : (
+          filtered.map((member) => {
+            const roleLabel =
+              member.powerLevel >= 100
+                ? 'Admin'
+                : member.powerLevel >= 50
+                  ? 'Mod'
+                  : 'Member';
+            const isElevated = member.powerLevel >= 50;
+            const mxidClass = getMxidTextClass(member.userId, theme.isDark);
+
+            return (
+              <div
+                key={member.userId}
+                className={`flex items-center justify-between gap-2.5 rounded-xl border px-3 py-2 ${theme.line} ${theme.surface}`}
+              >
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <span
+                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${theme.surfaceVar} ${mxidClass}`}
+                  >
+                    {member.displayName.slice(0, 2).toUpperCase()}
+                  </span>
+                  <div className="min-w-0">
+                    <div className={`truncate text-xs font-semibold ${mxidClass}`}>
+                      {member.displayName}
+                    </div>
+                    <div className={`truncate text-[10px] ${theme.muted}`}>{member.userId}</div>
+                  </div>
+                </div>
+                <span
+                  className={`shrink-0 rounded-md px-2 py-0.5 text-[10px] font-semibold ${
+                    isElevated
+                      ? `${theme.primaryContainer} ${theme.onPrimaryContainer}`
+                      : `${theme.surfaceVar} ${theme.muted}`
+                  }`}
+                >
+                  {roleLabel}
+                </span>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+}
+
+export function PhoneTopicModal({
+  room,
+  theme,
+  onClose,
+  onOpenSettings,
+}: {
+  room: RoomSummary;
+  theme: PhoneThemeClasses;
+  onClose: () => void;
+  onOpenSettings: () => void;
+}) {
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="聊天室主題 Topic"
+      className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs"
+    >
+      <div className={`w-full space-y-3 rounded-2xl border p-4 shadow-xl ${theme.line} ${theme.surface} ${theme.text}`}>
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <h3 className="truncate text-sm font-bold">{room.name}</h3>
+            <p className={`text-[10px] ${theme.muted}`}>聊天室主題 (Room Topic)</p>
+          </div>
+          <button type="button" onClick={onClose} aria-label="關閉主題說明" className={`p-1 ${theme.muted}`}>
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <p className={`max-h-48 overflow-y-auto rounded-xl border p-3 text-xs leading-relaxed ${theme.line} ${theme.bg}`}>
+          {room.topic || '尚未設定房間主題'}
+        </p>
+
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className={`rounded-lg px-3 py-1.5 text-xs ${theme.muted}`}
+          >
+            關閉
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              onClose();
+              onOpenSettings();
+            }}
+            className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${theme.primaryBg} ${theme.onPrimary}`}
+          >
+            前往房間設定
+          </button>
+        </div>
       </div>
     </div>
   );

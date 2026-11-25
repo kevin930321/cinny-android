@@ -1,5 +1,6 @@
-import { useState, FormEvent } from 'react';
+import { useRef, useState, FormEvent } from 'react';
 import {
+  ArrowDown,
   ArrowLeft,
   Bell,
   Code2,
@@ -9,6 +10,7 @@ import {
   ExternalLink,
   Hash,
   Inbox,
+  Info,
   KeyRound,
   Lock,
   MessageSquare,
@@ -22,6 +24,7 @@ import {
   ShieldCheck,
   SmilePlus,
   Trash2,
+  Users,
   X,
 } from 'lucide-react';
 import {
@@ -32,14 +35,17 @@ import {
   TimelineMessage,
   filterRooms,
   getSpaceUnreadSummary,
+  parseInlineMarkdownTokens,
 } from '../lib/cinnyEngine';
 import {
   PhoneCreateHubModal,
   PhoneEventSourceModal,
   PhoneExploreOverlay,
   PhoneInboxOverlay,
+  PhoneMembersOverlay,
   PhoneRoomSettingsOverlay,
   PhoneSettingsOverlay,
+  PhoneTopicModal,
 } from './PhoneOverlays';
 import { getMxidTextClass, getPhoneThemeClasses, PhoneThemeClasses } from './phoneThemeClasses';
 
@@ -61,6 +67,7 @@ interface AndroidPhoneSimulatorProps {
     roomId: string,
     patch: { name?: string; topic?: string; notificationLevel?: RoomNotificationLevel }
   ) => void;
+  onInviteUser: (roomId: string, userId: string) => void;
   onSendMessage: (markdown: string, replyToId?: string | null) => void;
   onEditMessage: (eventId: string, body: string) => void;
   onSendMediaAttachment: (filename: string, mimeType: string) => void;
@@ -79,6 +86,41 @@ interface AndroidPhoneSimulatorProps {
 const QUICK_REACTIONS = ['👍', '🦀', '🚀', '🔥'];
 const PRESET_HOMESERVERS = ['https://matrix.org', 'https://mozilla.org', 'https://kde.org'];
 
+function FormattedMessageBody({ body, theme }: { body: string; theme: PhoneThemeClasses }) {
+  const tokens = parseInlineMarkdownTokens(body);
+  return (
+    <>
+      {tokens.map((tok, i) => {
+        if (tok.kind === 'bold') {
+          return (
+            <strong key={i} className="font-semibold">
+              {tok.text}
+            </strong>
+          );
+        }
+        if (tok.kind === 'italic') {
+          return (
+            <em key={i} className="italic">
+              {tok.text}
+            </em>
+          );
+        }
+        if (tok.kind === 'code') {
+          return (
+            <code
+              key={i}
+              className={`rounded px-1 py-0.5 font-mono text-[11px] ${theme.surfaceVar}`}
+            >
+              {tok.text}
+            </code>
+          );
+        }
+        return <span key={i}>{tok.text}</span>;
+      })}
+    </>
+  );
+}
+
 function SafeAvatar({
   src,
   alt,
@@ -92,12 +134,24 @@ function SafeAvatar({
 }) {
   const [failed, setFailed] = useState(false);
 
-  if (!src || failed) {
+  if (!src) {
     return (
       <span
         className={`flex h-full w-full items-center justify-center text-xs font-semibold ${theme.surfaceVar} ${theme.text}`}
       >
         {fallback}
+      </span>
+    );
+  }
+
+  if (failed) {
+    return (
+      <span className={`flex h-full w-full items-center justify-center p-1.5 ${theme.surfaceVar}`}>
+        <img
+          src="/res/svg/image-broken.svg"
+          alt={alt}
+          className="h-4 w-4 opacity-70"
+        />
       </span>
     );
   }
@@ -128,6 +182,7 @@ export function AndroidPhoneSimulator({
   onUpdateSettings,
   onUpdateDisplayName,
   onUpdateRoomSettings,
+  onInviteUser,
   onSendMessage,
   onEditMessage,
   onSendMediaAttachment,
@@ -142,12 +197,15 @@ export function AndroidPhoneSimulator({
   onCloseVerification,
   onDismissPushBanner,
 }: AndroidPhoneSimulatorProps) {
+  const timelineRef = useRef<HTMLDivElement | null>(null);
+  const [showJumpToLatest, setShowJumpToLatest] = useState(false);
   const [roomQuery, setRoomQuery] = useState('');
   const [composerText, setComposerText] = useState('');
   const [replyingTo, setReplyingTo] = useState<TimelineMessage | null>(null);
   const [editingMsg, setEditingMsg] = useState<TimelineMessage | null>(null);
   const [reactionMenuForId, setReactionMenuForId] = useState<string | null>(null);
   const [sourceModalMsg, setSourceModalMsg] = useState<TimelineMessage | null>(null);
+  const [showTopicModal, setShowTopicModal] = useState(false);
   const [threadDraft, setThreadDraft] = useState('');
 
   const [loginHomeserver, setLoginHomeserver] = useState(state.homeserverUrl);
@@ -159,7 +217,7 @@ export function AndroidPhoneSimulator({
   const [msgSearchQuery, setMsgSearchQuery] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [activeOverlay, setActiveOverlay] = useState<
-    'none' | 'settings' | 'roomSettings' | 'explore' | 'inbox'
+    'none' | 'settings' | 'roomSettings' | 'members' | 'explore' | 'inbox'
   >('none');
 
   const [securityTab, setSecurityTab] = useState<'sas' | 'recovery'>('sas');
@@ -169,6 +227,9 @@ export function AndroidPhoneSimulator({
   const activeRoom: RoomSummary | undefined = state.rooms.find(
     (r) => r.roomId === state.activeRoomId
   );
+  const activeRoomMembers = state.activeRoomId
+    ? state.membersByRoom[state.activeRoomId] ?? []
+    : [];
   const allMessages: TimelineMessage[] = state.activeRoomId
     ? state.messagesByRoom[state.activeRoomId] ?? []
     : [];
@@ -199,12 +260,17 @@ export function AndroidPhoneSimulator({
     invitedRooms.length +
     state.rooms.filter((r) => r.category !== 'Invited' && r.highlightCount > 0).length;
 
+  const selectedSpaceNode =
+    state.selectedSpaceFilter !== 'all' && state.selectedSpaceFilter !== 'dm'
+      ? state.spaces.find((s) => s.roomId === state.selectedSpaceFilter)
+      : undefined;
+
   const activeSpaceName =
     state.selectedSpaceFilter === 'all'
       ? '首頁 Home'
       : state.selectedSpaceFilter === 'dm'
         ? '私訊 People'
-        : state.spaces.find((s) => s.roomId === state.selectedSpaceFilter)?.name ?? 'Spaces';
+        : selectedSpaceNode?.name ?? 'Spaces';
 
   const handleSend = (e: FormEvent) => {
     e.preventDefault();
@@ -301,21 +367,30 @@ export function AndroidPhoneSimulator({
           )}
 
           {!state.isAuthenticated ? (
-            /* Android Screen 1: Cinny Sequence Card Login Screen */
-            <div className="flex flex-1 flex-col justify-center px-5 py-4">
+            /* Android Screen 1: Cinny Sequence Card Login Screen with dot-grid pattern & official AuthHeader */
+            <div
+              className={`flex flex-1 flex-col justify-center px-4 py-3 ${
+                theme.isDark ? 'cinny-dot-bg-dark' : 'cinny-dot-bg-light'
+              }`}
+            >
               <form
                 onSubmit={handleLoginSubmit}
-                className={`rounded-2xl border p-5 shadow-sm ${theme.line} ${theme.surface}`}
+                className={`overflow-hidden rounded-2xl border shadow-sm ${theme.line} ${theme.surface}`}
               >
-                <div className="mb-4">
-                  <div className={`text-xs font-semibold uppercase tracking-wider ${theme.primaryText}`}>
-                    Matrix Client
+                <div className={`flex items-center gap-3 border-b px-4 py-3.5 ${theme.line} ${theme.surfaceVar}`}>
+                  <img
+                    src="/res/svg/cinny.svg"
+                    alt="Cinny Logo"
+                    className="h-11 w-11 shrink-0 rounded-full border border-current/15 object-cover"
+                  />
+                  <div className="min-w-0">
+                    <h2 className="text-lg font-bold tracking-tight leading-tight">Cinny</h2>
+                    <p className={`mt-0.5 text-[11px] leading-snug ${theme.muted}`}>
+                      Rust E2EE Matrix Client · 支援密碼與 SSO
+                    </p>
                   </div>
-                  <h2 className="mt-0.5 text-2xl font-bold tracking-tight">Cinny</h2>
-                  <p className={`mt-1 text-xs leading-relaxed ${theme.muted}`}>
-                    支援密碼與 SSO / OIDC 瀏覽器驗證，本地以 Rust Keystore 加密保存 SQLite。
-                  </p>
                 </div>
+                <div className="p-4">
 
                 <div className="mb-3 flex flex-wrap gap-1.5">
                   {PRESET_HOMESERVERS.map((hs) => (
@@ -389,6 +464,7 @@ export function AndroidPhoneSimulator({
                   <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
                   <span>透過 SSO / OIDC 瀏覽器登入</span>
                 </button>
+                </div>
               </form>
             </div>
           ) : activeRoom ? (
@@ -409,7 +485,7 @@ export function AndroidPhoneSimulator({
                     type="button"
                     onClick={() => setActiveOverlay('roomSettings')}
                     aria-label="開啟聊天室設定"
-                    className={`min-w-0 flex-1 rounded-xl px-2 py-1 text-left ${theme.hoverSurface}`}
+                    className={`min-w-0 flex-1 rounded-xl px-1.5 py-1 text-left ${theme.hoverSurface}`}
                   >
                     <div className="flex items-center gap-1.5">
                       {activeRoom.isEncrypted ? (
@@ -426,6 +502,14 @@ export function AndroidPhoneSimulator({
                 <div className="flex shrink-0 items-center gap-0.5">
                   <button
                     type="button"
+                    onClick={() => setShowTopicModal(true)}
+                    aria-label="檢視聊天室主題"
+                    className={`flex h-8 w-8 items-center justify-center rounded-xl ${theme.muted} ${theme.hoverSurface}`}
+                  >
+                    <Info className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => {
                       setShowMsgSearch((v) => !v);
                       setMsgSearchQuery('');
@@ -436,6 +520,14 @@ export function AndroidPhoneSimulator({
                     }`}
                   >
                     <Search className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveOverlay('members')}
+                    aria-label="開啟聊天室成員列表"
+                    className={`flex h-8 w-8 items-center justify-center rounded-xl ${theme.muted} ${theme.hoverSurface}`}
+                  >
+                    <Users className="h-4 w-4" />
                   </button>
                   <button
                     type="button"
@@ -491,36 +583,47 @@ export function AndroidPhoneSimulator({
               )}
 
               {/* Message Timeline: Supports Modern / Compact / Bubble */}
-              <div
-                data-testid="android-timeline-list"
-                className={`flex-1 overflow-y-auto px-3 py-2.5 ${
-                  state.settings.messageLayout === 'Compact' ? 'space-y-1.5' : 'space-y-3'
-                }`}
-              >
-                {activeMessages.map((msg) => {
-                  const mxidClass = getMxidTextClass(msg.senderId, theme.isDark);
-                  const isBubbleRight =
-                    state.settings.messageLayout === 'Bubble' &&
-                    state.settings.bubbleOwnRight &&
-                    msg.isOwn;
+              <div className="relative flex-1 overflow-hidden">
+                <div
+                  ref={timelineRef}
+                  onScroll={(e) => {
+                    const el = e.currentTarget;
+                    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+                    setShowJumpToLatest(distanceFromBottom > 28);
+                  }}
+                  data-testid="android-timeline-list"
+                  className={`h-full overflow-y-auto px-3 py-2.5 ${
+                    state.settings.messageLayout === 'Compact' ? 'space-y-1.5' : 'space-y-3'
+                  }`}
+                >
+                  {activeMessages.map((msg) => {
+                    const mxidClass = getMxidTextClass(msg.senderId, theme.isDark);
+                    const isBubbleRight =
+                      state.settings.messageLayout === 'Bubble' &&
+                      state.settings.bubbleOwnRight &&
+                      msg.isOwn;
 
-                  if (state.settings.messageLayout === 'Compact') {
-                    return (
-                      <article
-                        key={msg.eventId}
-                        className={`rounded-lg px-2 py-1 text-xs ${theme.hoverSurface}`}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0 flex-1 leading-relaxed break-words">
-                            <span className={`mr-1.5 font-mono text-[10px] ${theme.muted} tabular-nums`}>
-                              [{formatMsgClock(msg.timestampLabel)}]
-                            </span>
-                            <span className={`mr-1.5 font-semibold ${mxidClass}`}>
-                              &lt;{msg.senderName}&gt;
-                            </span>
-                            <span className={msg.isRedacted || msg.isUnableToDecrypt ? `italic ${theme.warning}` : ''}>
-                              {msg.body}
-                            </span>
+                    if (state.settings.messageLayout === 'Compact') {
+                      return (
+                        <article
+                          key={msg.eventId}
+                          className={`rounded-lg px-2 py-1 text-xs ${theme.hoverSurface}`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0 flex-1 leading-relaxed break-words">
+                              <span className={`mr-1.5 font-mono text-[10px] ${theme.muted} tabular-nums`}>
+                                [{formatMsgClock(msg.timestampLabel)}]
+                              </span>
+                              <span className={`mr-1.5 font-semibold ${mxidClass}`}>
+                                &lt;{msg.senderName}&gt;
+                              </span>
+                              <span className={msg.isRedacted || msg.isUnableToDecrypt ? `italic ${theme.warning}` : ''}>
+                                {msg.isRedacted || msg.isUnableToDecrypt ? (
+                                  msg.body
+                                ) : (
+                                  <FormattedMessageBody body={msg.body} theme={theme} />
+                                )}
+                              </span>
                             {msg.isEdited && !msg.isRedacted && (
                               <span className={`ml-1 text-[10px] ${theme.muted}`}>(已編輯)</span>
                             )}
@@ -716,7 +819,11 @@ export function AndroidPhoneSimulator({
                                 : ''
                             }`}
                           >
-                            {msg.body}
+                            {msg.isRedacted || msg.isUnableToDecrypt ? (
+                              msg.body
+                            ) : (
+                              <FormattedMessageBody body={msg.body} theme={theme} />
+                            )}
                           </p>
 
                           {msg.attachment && !msg.isRedacted && (
@@ -807,6 +914,25 @@ export function AndroidPhoneSimulator({
                     </article>
                   );
                 })}
+                </div>
+
+                {showJumpToLatest && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (timelineRef.current) {
+                        timelineRef.current.scrollTo({
+                          top: timelineRef.current.scrollHeight,
+                          behavior: 'smooth',
+                        });
+                      }
+                    }}
+                    className={`absolute bottom-2.5 left-1/2 -translate-x-1/2 inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-semibold shadow-md ${theme.line} ${theme.surface} ${theme.text}`}
+                  >
+                    <ArrowDown className={`h-3.5 w-3.5 ${theme.primaryText}`} />
+                    <span>跳至最新訊息</span>
+                  </button>
+                )}
               </div>
 
               {/* Composer */}
@@ -1051,11 +1177,29 @@ export function AndroidPhoneSimulator({
               {/* Right Room List Pane */}
               <div className="flex flex-1 flex-col overflow-hidden">
                 <div className={`flex items-center justify-between border-b px-3 py-2.5 ${theme.line} ${theme.surface}`}>
-                  <div className="min-w-0">
-                    <h2 className="truncate text-sm font-semibold">{activeSpaceName}</h2>
-                    <p className={`truncate text-[10px] ${theme.muted}`}>
-                      {state.displayName} · {state.settings.themeMode}
-                    </p>
+                  <div className="flex min-w-0 items-center gap-2">
+                    {selectedSpaceNode ? (
+                      <div className="h-7 w-7 shrink-0 overflow-hidden rounded-lg">
+                        <SafeAvatar
+                          src={selectedSpaceNode.avatarUrl}
+                          alt={selectedSpaceNode.name}
+                          fallback={selectedSpaceNode.shortCode}
+                          theme={theme}
+                        />
+                      </div>
+                    ) : (
+                      <img
+                        src="/res/svg/cinny.svg"
+                        alt="Cinny"
+                        className="h-7 w-7 shrink-0 rounded-full border border-current/15 object-cover"
+                      />
+                    )}
+                    <div className="min-w-0">
+                      <h2 className="truncate text-sm font-semibold">{activeSpaceName}</h2>
+                      <p className={`truncate text-[10px] ${theme.muted}`}>
+                        {state.displayName} · {state.settings.themeMode}
+                      </p>
+                    </div>
                   </div>
                   <button
                     type="button"
@@ -1089,6 +1233,46 @@ export function AndroidPhoneSimulator({
                 </div>
 
                 <div className="flex-1 space-y-2 overflow-y-auto px-2.5 pb-3">
+                  {selectedSpaceNode && (
+                    <section
+                      aria-label={`Space ${selectedSpaceNode.name} 導覽卡片`}
+                      className={`rounded-2xl border p-2.5 ${theme.line} ${theme.surface}`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <div className="h-10 w-10 shrink-0 overflow-hidden rounded-xl">
+                          <SafeAvatar
+                            src={selectedSpaceNode.avatarUrl}
+                            alt={selectedSpaceNode.name}
+                            fallback={selectedSpaceNode.shortCode}
+                            theme={theme}
+                          />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-xs font-bold">{selectedSpaceNode.name}</div>
+                          <p className={`line-clamp-2 text-[10px] leading-snug ${theme.muted}`}>
+                            {selectedSpaceNode.topic}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="mt-2 grid grid-cols-2 gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setActiveOverlay('explore')}
+                          className={`rounded-lg border px-2 py-1 text-[10px] font-semibold ${theme.line} ${theme.hoverSurface}`}
+                        >
+                          瀏覽空間頻道
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowCreateModal(true)}
+                          className={`rounded-lg px-2 py-1 text-[10px] font-semibold ${theme.primaryContainer} ${theme.onPrimaryContainer}`}
+                        >
+                          建立頻道
+                        </button>
+                      </div>
+                    </section>
+                  )}
+
                   {invitedRooms.length > 0 && state.selectedSpaceFilter === 'all' && (
                     <div>
                       <div className={`px-1.5 pb-1 text-[10px] font-semibold uppercase tracking-wider ${theme.primaryText}`}>
@@ -1181,9 +1365,20 @@ export function AndroidPhoneSimulator({
           {activeOverlay === 'roomSettings' && activeRoom && (
             <PhoneRoomSettingsOverlay
               room={activeRoom}
+              members={activeRoomMembers}
               theme={theme}
               onClose={() => setActiveOverlay('none')}
               onSave={(patch) => onUpdateRoomSettings(activeRoom.roomId, patch)}
+            />
+          )}
+
+          {activeOverlay === 'members' && activeRoom && (
+            <PhoneMembersOverlay
+              room={activeRoom}
+              members={activeRoomMembers}
+              theme={theme}
+              onClose={() => setActiveOverlay('none')}
+              onInviteUser={(userId) => onInviteUser(activeRoom.roomId, userId)}
             />
           )}
 
@@ -1221,6 +1416,15 @@ export function AndroidPhoneSimulator({
               message={sourceModalMsg}
               theme={theme}
               onClose={() => setSourceModalMsg(null)}
+            />
+          )}
+
+          {showTopicModal && activeRoom && (
+            <PhoneTopicModal
+              room={activeRoom}
+              theme={theme}
+              onClose={() => setShowTopicModal(false)}
+              onOpenSettings={() => setActiveOverlay('roomSettings')}
             />
           )}
 

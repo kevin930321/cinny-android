@@ -108,4 +108,17 @@
     <string name="room_settings_title">聊天室設定</string>
     <string name="room_settings_members">成員列表</string>
     <string name="room_settings_update_topic">更新主題</string>
+
+    <string name="space_hero_browse_channels">瀏覽空間頻道</string>
+    <string name="space_hero_new_room">建立頻道</string>
+    <string name="room_topic_title">聊天室主題</string>
+    <string name="members_drawer_title">聊天室成員</string>
+    <string name="members_search_hint">搜尋成員名稱或 Matrix ID…</string>
+    <string name="members_invite_hint">輸入 @user:matrix.org 邀請成員…</string>
+    <string name="members_empty">找不到符合條件的成員</string>
+    <string name="role_admin">管理員</string>
+    <string name="role_moderator">版主</string>
+    <string name="role_member">成員</string>
+    <string name="jump_to_latest">跳至最新訊息</string>
+    <string name="image_load_failed">圖片解碼失敗，點擊重新下載</string>
 </resources>

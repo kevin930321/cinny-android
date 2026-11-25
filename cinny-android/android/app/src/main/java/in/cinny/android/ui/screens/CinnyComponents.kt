@@ -2,6 +2,7 @@ package `in`.cinny.android.ui.screens
 
 import android.graphics.BitmapFactory
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -18,13 +19,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import `in`.cinny.android.R
 import `in`.cinny.android.ui.theme.CinnyThemeColors
 import `in`.cinny.android.ui.theme.colorMXID
 
@@ -257,5 +261,61 @@ fun CinnyCountBadge(
             color = if (highlight) Color.White else colors.onPrimary,
             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
         )
+    }
+}
+
+@Composable
+fun CinnyBrandLogo(
+    size: Dp = 44.dp,
+    modifier: Modifier = Modifier
+) {
+    val colors = CinnyThemeColors.current
+    Surface(
+        modifier = modifier.size(size),
+        shape = CircleShape,
+        color = colors.surfaceVariant,
+        border = BorderStroke(1.dp, colors.surfaceLine)
+    ) {
+        Image(
+            painter = painterResource(id = R.drawable.ic_cinny_logo),
+            contentDescription = "Cinny",
+            contentScale = ContentScale.Crop,
+            modifier = Modifier
+                .fillMaxSize()
+                .clip(CircleShape)
+        )
+    }
+}
+
+@Composable
+fun CinnyDotPatternBackground(
+    modifier: Modifier = Modifier,
+    content: @Composable BoxScope.() -> Unit
+) {
+    val colors = CinnyThemeColors.current
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(colors.background)
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val step = 40.dp.toPx()
+            val radius = 1.6.dp.toPx()
+            val dotColor = colors.containerLine.copy(alpha = if (colors.isDark) 0.42f else 0.55f)
+            var y = step * 0.5f
+            while (y < size.height) {
+                var x = step * 0.5f
+                while (x < size.width) {
+                    drawCircle(
+                        color = dotColor,
+                        radius = radius,
+                        center = Offset(x, y)
+                    )
+                    x += step
+                }
+                y += step
+            }
+        }
+        content()
     }
 }

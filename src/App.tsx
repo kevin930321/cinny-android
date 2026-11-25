@@ -16,6 +16,7 @@ import {
   createSpaceFlow,
   decryptMediaPreviewFlow,
   editMarkdownMessageFlow,
+  inviteUserToRoomFlow,
   joinDiscoverableSpaceRoom,
   recoverSecretBackupFlow,
   redactMessage,
@@ -140,6 +141,10 @@ export default function App() {
     patch: { name?: string; topic?: string; notificationLevel?: RoomNotificationLevel }
   ) => {
     setCinnyState((prev) => updateRoomSettingsFlow(prev, roomId, patch, currentClockSec()));
+  };
+
+  const handleInviteUser = (roomId: string, userId: string) => {
+    setCinnyState((prev) => inviteUserToRoomFlow(prev, roomId, userId, currentClockSec()));
   };
 
   const handleSendMessage = (markdown: string, replyToId?: string | null) => {
@@ -298,6 +303,7 @@ export default function App() {
                 onUpdateSettings={handleUpdateSettings}
                 onUpdateDisplayName={handleUpdateDisplayName}
                 onUpdateRoomSettings={handleUpdateRoomSettings}
+                onInviteUser={handleInviteUser}
                 onSendMessage={handleSendMessage}
                 onEditMessage={handleEditMessage}
                 onSendMediaAttachment={handleSendMediaAttachment}

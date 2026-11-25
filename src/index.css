@@ -16,3 +16,13 @@
 .tabular-nums {
   font-variant-numeric: tabular-nums;
 }
+
+.cinny-dot-bg-light {
+  background-image: radial-gradient(rgba(140, 140, 140, 0.28) 1.5px, transparent 1.5px);
+  background-size: 40px 40px;
+}
+
+.cinny-dot-bg-dark {
+  background-image: radial-gradient(rgba(180, 180, 190, 0.18) 1.5px, transparent 1.5px);
+  background-size: 40px 40px;
+}

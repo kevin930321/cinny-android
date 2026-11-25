@@ -108,4 +108,17 @@
     <string name="room_settings_title">Room Settings</string>
     <string name="room_settings_members">Members</string>
     <string name="room_settings_update_topic">Update Topic</string>
+
+    <string name="space_hero_browse_channels">Browse Channels</string>
+    <string name="space_hero_new_room">New Room</string>
+    <string name="room_topic_title">Room Topic</string>
+    <string name="members_drawer_title">Room Members</string>
+    <string name="members_search_hint">Search members…</string>
+    <string name="members_invite_hint">Invite @user:server…</string>
+    <string name="members_empty">No matching members</string>
+    <string name="role_admin">Admin</string>
+    <string name="role_moderator">Mod</string>
+    <string name="role_member">Member</string>
+    <string name="jump_to_latest">Jump to latest</string>
+    <string name="image_load_failed">Unable to decode image</string>
 </resources>

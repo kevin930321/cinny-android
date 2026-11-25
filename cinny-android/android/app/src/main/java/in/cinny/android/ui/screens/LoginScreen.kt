@@ -1,5 +1,6 @@
 package `in`.cinny.android.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -7,7 +8,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.OpenInBrowser
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -46,9 +46,11 @@ fun LoginScreen(repository: CinnyRepository) {
     }
 
     if (isRestoring) {
-        Surface(color = colors.background, modifier = Modifier.fillMaxSize()) {
+        CinnyDotPatternBackground {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    CinnyBrandLogo(size = 56.dp)
+                    Spacer(modifier = Modifier.height(16.dp))
                     CircularProgressIndicator(color = colors.primary)
                     Spacer(modifier = Modifier.height(14.dp))
                     Text(
@@ -61,52 +63,47 @@ fun LoginScreen(repository: CinnyRepository) {
         return
     }
 
-    Surface(color = colors.background, modifier = Modifier.fillMaxSize()) {
+    CinnyDotPatternBackground {
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .windowInsetsPadding(WindowInsets.safeDrawing)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp, vertical = 32.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             CinnySequenceCard(modifier = Modifier.widthIn(max = 440.dp)) {
+                // Upstream Cinny AuthHeader Strip
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(colors.surfaceVariant.copy(alpha = 0.45f))
+                        .padding(horizontal = 22.dp, vertical = 18.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    CinnyBrandLogo(size = 48.dp)
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.app_name),
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = colors.onSurface
+                        )
+                        Text(
+                            text = stringResource(R.string.login_subtitle),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colors.onSurfaceMuted
+                        )
+                    }
+                }
+                HorizontalDivider(color = colors.surfaceLine)
+
                 Column(
                     modifier = Modifier.padding(22.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Surface(
-                            color = colors.primaryContainer,
-                            shape = RoundedCornerShape(14.dp),
-                            modifier = Modifier.size(48.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    imageVector = Icons.Outlined.Lock,
-                                    contentDescription = null,
-                                    tint = colors.onPrimaryContainer
-                                )
-                            }
-                        }
-                        Column {
-                            Text(
-                                text = stringResource(R.string.app_name),
-                                style = MaterialTheme.typography.headlineSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = colors.onSurface
-                            )
-                            Text(
-                                text = stringResource(R.string.login_subtitle),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = colors.onSurfaceMuted
-                            )
-                        }
-                    }
-
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         items(PRESET_HOMESERVERS) { preset ->
                             FilterChip(

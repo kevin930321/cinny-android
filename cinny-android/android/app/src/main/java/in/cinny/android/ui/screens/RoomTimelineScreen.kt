@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -32,6 +33,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -48,7 +50,9 @@ import `in`.cinny.android.data.CinnyRepository
 import `in`.cinny.android.ui.CinnyViewModel
 import `in`.cinny.android.ui.theme.CinnyThemeColors
 import `in`.cinny.android.ui.theme.colorMXID
+import kotlinx.coroutines.launch
 import uniffi.cinny_core.MessageDeliveryStatus
+import uniffi.cinny_core.RoomMemberSummary
 import uniffi.cinny_core.RoomSummary
 import uniffi.cinny_core.TimelineMessage
 import java.io.File
@@ -76,8 +80,10 @@ fun RoomTimelineScreen(
     val threadMessages by repository.threadMessages.collectAsState()
     val downloadedMedia by repository.downloadedMediaPaths.collectAsState()
     val mxcCachePaths by repository.mxcCachePaths.collectAsState()
+    val roomMembers by repository.roomMembers.collectAsState()
 
     val listState = rememberLazyListState()
+    val coroutineScope = rememberCoroutineScope()
     var draft by remember { mutableStateOf("") }
     var replyingTo by remember { mutableStateOf<TimelineMessage?>(null) }
     var editingMessage by remember { mutableStateOf<TimelineMessage?>(null) }
@@ -85,6 +91,8 @@ fun RoomTimelineScreen(
     var sourceViewTarget by remember { mutableStateOf<TimelineMessage?>(null) }
     var showSearchBar by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
+    var showTopicDialog by remember { mutableStateOf(false) }
+    var showMembersSheet by remember { mutableStateOf(false) }
 
     val mediaPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -176,7 +184,8 @@ fun RoomTimelineScreen(
                                     style = MaterialTheme.typography.labelSmall,
                                     color = colors.onSurfaceMuted,
                                     maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.clickable { showTopicDialog = true }
                                 )
                             }
                         }
@@ -188,6 +197,12 @@ fun RoomTimelineScreen(
                         if (!showSearchBar) searchQuery = ""
                     }) {
                         Icon(Icons.Outlined.Search, contentDescription = stringResource(R.string.action_search))
+                    }
+                    IconButton(onClick = {
+                        repository.loadRoomMembers(room.roomId)
+                        showMembersSheet = true
+                    }) {
+                        Icon(Icons.Outlined.Group, contentDescription = stringResource(R.string.members_drawer_title))
                     }
                     IconButton(onClick = onOpenRoomSettings) {
                         Icon(Icons.Outlined.Tune, contentDescription = stringResource(R.string.room_settings_title))
@@ -352,74 +367,124 @@ fun RoomTimelineScreen(
                 )
             }
 
-            LazyColumn(
-                state = listState,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 10.dp),
-                verticalArrangement = Arrangement.spacedBy(spacingDp),
-                contentPadding = PaddingValues(vertical = 10.dp)
-            ) {
-                itemsIndexed(visibleMessages, key = { _, m -> m.eventId }) { index, msg ->
-                    val prevMsg = if (index > 0) visibleMessages[index - 1] else null
-                    val showDateDivider = prevMsg == null ||
-                        !CinnyViewModel.isSameCalendarDay(prevMsg.timestampMs, msg.timestampMs)
-                    val groupedWithPrevious = !showDateDivider &&
-                        settings.messageLayout == CinnyMessageLayout.Modern &&
-                        CinnyViewModel.shouldGroupWithPrevious(prevMsg, msg)
+            val showJumpToLatest by remember(visibleMessages.size) {
+                derivedStateOf {
+                    visibleMessages.isNotEmpty() && listState.canScrollForward
+                }
+            }
 
-                    if (showDateDivider) {
-                        DateDividerRow(
-                            label = CinnyViewModel.formatDateDivider(msg.timestampMs, settings.dateFormat)
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+            ) {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 10.dp),
+                    verticalArrangement = Arrangement.spacedBy(spacingDp),
+                    contentPadding = PaddingValues(vertical = 10.dp)
+                ) {
+                    itemsIndexed(visibleMessages, key = { _, m -> m.eventId }) { index, msg ->
+                        val prevMsg = if (index > 0) visibleMessages[index - 1] else null
+                        val showDateDivider = prevMsg == null ||
+                            !CinnyViewModel.isSameCalendarDay(prevMsg.timestampMs, msg.timestampMs)
+                        val groupedWithPrevious = !showDateDivider &&
+                            settings.messageLayout == CinnyMessageLayout.Modern &&
+                            CinnyViewModel.shouldGroupWithPrevious(prevMsg, msg)
+
+                        if (showDateDivider) {
+                            DateDividerRow(
+                                label = CinnyViewModel.formatDateDivider(msg.timestampMs, settings.dateFormat)
+                            )
+                        }
+
+                        val attach = msg.attachment
+                        if (settings.autoLoadMedia &&
+                            attach != null &&
+                            attach.mimeType.startsWith("image/") &&
+                            downloadedMedia[msg.eventId] == null
+                        ) {
+                            LaunchedEffect(msg.eventId) {
+                                repository.downloadMedia(msg.eventId, attach.mediaSourceJson, attach.filename)
+                            }
+                        }
+
+                        val onOpenAttachment: (uniffi.cinny_core.MediaAttachmentInfo) -> Unit = { media ->
+                            repository.downloadMedia(
+                                eventId = msg.eventId,
+                                mediaSourceJson = media.mediaSourceJson,
+                                filename = media.filename
+                            ) { localPath ->
+                                val file = File(localPath)
+                                val uri = FileProvider.getUriForFile(
+                                    context,
+                                    "${context.packageName}.fileprovider",
+                                    file
+                                )
+                                val viewIntent = Intent(Intent.ACTION_VIEW).apply {
+                                    setDataAndType(uri, media.mimeType)
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                }
+                                runCatching { context.startActivity(viewIntent) }
+                            }
+                        }
+
+                        CinnyTimelineMessageItem(
+                            message = msg,
+                            layout = settings.messageLayout,
+                            bubbleOwnRight = settings.bubbleOwnRight,
+                            groupedWithPrevious = groupedWithPrevious,
+                            timeLabel = CinnyViewModel.formatTimeLabel(msg.timestampMs, settings.use24HourClock),
+                            mxcCachePaths = mxcCachePaths,
+                            cachedMediaPath = downloadedMedia[msg.eventId],
+                            onRequestMxc = { repository.requestMxcThumbnail(it, 96) },
+                            onOpenAttachment = onOpenAttachment,
+                            onOpenMenu = { if (!msg.isRedacted) actionSheetTarget = msg },
+                            onReact = { emoji -> repository.toggleReaction(msg.eventId, emoji) },
+                            onOpenThread = { repository.openThread(msg) },
+                            onUnlockKeys = onOpenVerify
                         )
                     }
+                }
 
-                    val attach = msg.attachment
-                    if (settings.autoLoadMedia &&
-                        attach != null &&
-                        attach.mimeType.startsWith("image/") &&
-                        downloadedMedia[msg.eventId] == null
-                    ) {
-                        LaunchedEffect(msg.eventId) {
-                            repository.downloadMedia(msg.eventId, attach.mediaSourceJson, attach.filename)
-                        }
-                    }
-
-                    val onOpenAttachment: (uniffi.cinny_core.MediaAttachmentInfo) -> Unit = { media ->
-                        repository.downloadMedia(
-                            eventId = msg.eventId,
-                            mediaSourceJson = media.mediaSourceJson,
-                            filename = media.filename
-                        ) { localPath ->
-                            val file = File(localPath)
-                            val uri = FileProvider.getUriForFile(
-                                context,
-                                "${context.packageName}.fileprovider",
-                                file
-                            )
-                            val viewIntent = Intent(Intent.ACTION_VIEW).apply {
-                                setDataAndType(uri, media.mimeType)
-                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                if (showJumpToLatest) {
+                    Surface(
+                        color = colors.surface,
+                        shape = CircleShape,
+                        border = BorderStroke(1.dp, colors.containerLine),
+                        shadowElevation = 4.dp,
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(bottom = 12.dp)
+                            .clickable {
+                                coroutineScope.launch {
+                                    if (visibleMessages.isNotEmpty()) {
+                                        listState.animateScrollToItem(visibleMessages.lastIndex)
+                                    }
+                                }
                             }
-                            runCatching { context.startActivity(viewIntent) }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.ArrowDownward,
+                                contentDescription = stringResource(R.string.jump_to_latest),
+                                tint = colors.primary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(
+                                text = stringResource(R.string.jump_to_latest),
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = colors.onSurface
+                            )
                         }
                     }
-
-                    CinnyTimelineMessageItem(
-                        message = msg,
-                        layout = settings.messageLayout,
-                        bubbleOwnRight = settings.bubbleOwnRight,
-                        groupedWithPrevious = groupedWithPrevious,
-                        timeLabel = CinnyViewModel.formatTimeLabel(msg.timestampMs, settings.use24HourClock),
-                        mxcCachePaths = mxcCachePaths,
-                        cachedMediaPath = downloadedMedia[msg.eventId],
-                        onRequestMxc = { repository.requestMxcThumbnail(it, 96) },
-                        onOpenAttachment = onOpenAttachment,
-                        onOpenMenu = { if (!msg.isRedacted) actionSheetTarget = msg },
-                        onReact = { emoji -> repository.toggleReaction(msg.eventId, emoji) },
-                        onOpenThread = { repository.openThread(msg) },
-                        onUnlockKeys = onOpenVerify
-                    )
                 }
             }
         }
@@ -534,6 +599,56 @@ fun RoomTimelineScreen(
                 threadMessages = threadMessages,
                 onSendReply = { text -> repository.sendThreadReply(text) },
                 onDismiss = { repository.closeThread() }
+            )
+        }
+
+        if (showTopicDialog) {
+            AlertDialog(
+                onDismissRequest = { showTopicDialog = false },
+                title = {
+                    Column {
+                        Text(room.name, fontWeight = FontWeight.Bold)
+                        Text(
+                            stringResource(R.string.room_topic_title),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = colors.onSurfaceMuted
+                        )
+                    }
+                },
+                text = {
+                    Text(
+                        text = room.topic?.takeIf { it.isNotBlank() } ?: "—",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = colors.onSurface,
+                        modifier = Modifier
+                            .heightIn(max = 280.dp)
+                            .verticalScroll(rememberScrollState())
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        showTopicDialog = false
+                        onOpenRoomSettings()
+                    }) {
+                        Text(stringResource(R.string.room_settings_title))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showTopicDialog = false }) {
+                        Text(stringResource(R.string.action_close))
+                    }
+                }
+            )
+        }
+
+        if (showMembersSheet) {
+            RoomMembersBottomSheet(
+                roomName = room.name,
+                members = roomMembers,
+                mxcCachePaths = mxcCachePaths,
+                onRequestMxc = { repository.requestMxcThumbnail(it, 96) },
+                onInviteUser = { userId -> repository.inviteUser(room.roomId, userId) },
+                onDismiss = { showMembersSheet = false }
             )
         }
     }
@@ -904,7 +1019,9 @@ private fun AttachmentAndReactions(
         ) {
             Column(modifier = Modifier.padding(10.dp)) {
                 if (cachedMediaPath != null && attach.mimeType.startsWith("image/")) {
-                    val bmp = remember(cachedMediaPath) { BitmapFactory.decodeFile(cachedMediaPath) }
+                    val bmp = remember(cachedMediaPath) {
+                        runCatching { BitmapFactory.decodeFile(cachedMediaPath) }.getOrNull()
+                    }
                     if (bmp != null) {
                         Image(
                             bitmap = bmp.asImageBitmap(),
@@ -915,6 +1032,28 @@ private fun AttachmentAndReactions(
                                 .height(180.dp)
                                 .clip(RoundedCornerShape(8.dp))
                         )
+                        Spacer(modifier = Modifier.height(6.dp))
+                    } else {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(colors.surface)
+                                .padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Image(
+                                painter = painterResource(id = R.drawable.ic_image_broken),
+                                contentDescription = stringResource(R.string.image_load_failed),
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Text(
+                                text = stringResource(R.string.image_load_failed),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = colors.onSurfaceMuted
+                            )
+                        }
                         Spacer(modifier = Modifier.height(6.dp))
                     }
                 }
@@ -1064,4 +1203,198 @@ private fun ThreadModalDialog(
             TextButton(onClick = onDismiss) { Text("Close") }
         }
     )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RoomMembersBottomSheet(
+    roomName: String,
+    members: List<RoomMemberSummary>,
+    mxcCachePaths: Map<String, String>,
+    onRequestMxc: (String?) -> Unit,
+    onInviteUser: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val colors = CinnyThemeColors.current
+    var query by remember { mutableStateOf("") }
+    var inviteInput by remember { mutableStateOf("") }
+
+    val filteredMembers = remember(members, query) {
+        val q = query.trim().lowercase()
+        val sorted = members.sortedByDescending { it.powerLevel }
+        if (q.isEmpty()) {
+            sorted
+        } else {
+            sorted.filter {
+                it.displayName.lowercase().contains(q) || it.userId.lowercase().contains(q)
+            }
+        }
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = colors.surface
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .navigationBarsPadding(),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.members_drawer_title),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = colors.onSurface
+                    )
+                    Text(
+                        text = "$roomName · ${members.size}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = colors.onSurfaceMuted
+                    )
+                }
+                IconButton(onClick = onDismiss) {
+                    Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.action_close))
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedTextField(
+                    value = inviteInput,
+                    onValueChange = { inviteInput = it },
+                    placeholder = {
+                        Text(
+                            stringResource(R.string.members_invite_hint),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    },
+                    singleLine = true,
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.weight(1f)
+                )
+                FilledTonalButton(
+                    onClick = {
+                        val target = inviteInput.trim()
+                        if (target.isNotEmpty()) {
+                            onInviteUser(target)
+                            inviteInput = ""
+                        }
+                    },
+                    enabled = inviteInput.isNotBlank(),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Icon(Icons.Outlined.PersonAdd, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(stringResource(R.string.action_invite))
+                }
+            }
+
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                placeholder = {
+                    Text(
+                        stringResource(R.string.members_search_hint),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                },
+                leadingIcon = {
+                    Icon(Icons.Outlined.Search, contentDescription = null, modifier = Modifier.size(18.dp))
+                },
+                singleLine = true,
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            if (filteredMembers.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = stringResource(R.string.members_empty),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colors.onSurfaceMuted
+                    )
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 340.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    contentPadding = PaddingValues(bottom = 20.dp)
+                ) {
+                    items(filteredMembers, key = { it.userId }) { member ->
+                        val roleLabel = when {
+                            member.powerLevel >= 100L -> stringResource(R.string.role_admin)
+                            member.powerLevel >= 50L -> stringResource(R.string.role_moderator)
+                            else -> stringResource(R.string.role_member)
+                        }
+                        val isElevated = member.powerLevel >= 50L
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .padding(horizontal = 8.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            MxcAvatar(
+                                name = member.displayName,
+                                seedId = member.userId,
+                                mxcUrl = member.avatarMxc,
+                                mxcCachePaths = mxcCachePaths,
+                                onRequestMxc = onRequestMxc,
+                                size = 36.dp,
+                                cornerRadius = 18.dp
+                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = member.displayName,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = colorMXID(member.userId, colors.isDark),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = member.userId,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = colors.onSurfaceMuted,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            Surface(
+                                color = if (isElevated) colors.primaryContainer else colors.surfaceVariant,
+                                shape = RoundedCornerShape(6.dp)
+                            ) {
+                                Text(
+                                    text = roleLabel,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = if (isElevated) colors.onPrimaryContainer else colors.onSurfaceMuted,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }

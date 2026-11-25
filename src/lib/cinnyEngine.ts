@@ -234,6 +234,12 @@ export interface UniFfiTraceEntry {
   timestamp: string;
 }
 
+export interface RoomMemberEntry {
+  userId: string;
+  displayName: string;
+  powerLevel: number;
+}
+
 export interface CinnyAppState {
   isAuthenticated: boolean;
   authMethod: 'password' | 'sso';
@@ -253,6 +259,7 @@ export interface CinnyAppState {
   discoverableRooms: DiscoverableSpaceRoom[];
   rooms: RoomSummary[];
   messagesByRoom: Record<string, TimelineMessage[]>;
+  membersByRoom: Record<string, RoomMemberEntry[]>;
   verification: VerificationStep;
   traces: UniFfiTraceEntry[];
 }
@@ -540,6 +547,32 @@ export function createInitialCinnyState(): CinnyAppState {
     ],
   };
 
+  const membersByRoom: Record<string, RoomMemberEntry[]> = {
+    '!cinny-dev:matrix.org': [
+      { userId: '@you:matrix.org', displayName: 'You (Cinny Android)', powerLevel: 100 },
+      { userId: '@ajbura:matrix.org', displayName: 'Ajay', powerLevel: 100 },
+      { userId: '@lin:matrix.org', displayName: 'Lin (Rust Core)', powerLevel: 50 },
+      { userId: '@mira:matrix.org', displayName: 'Mira', powerLevel: 0 },
+    ],
+    '!cinny-design:matrix.org': [
+      { userId: '@you:matrix.org', displayName: 'You (Cinny Android)', powerLevel: 50 },
+      { userId: '@mira:matrix.org', displayName: 'Mira', powerLevel: 100 },
+      { userId: '@ajbura:matrix.org', displayName: 'Ajay', powerLevel: 50 },
+    ],
+    '!uniffi-bindings:matrix.org': [
+      { userId: '@lin:matrix.org', displayName: 'Lin (Rust Core)', powerLevel: 100 },
+      { userId: '@you:matrix.org', displayName: 'You (Cinny Android)', powerLevel: 50 },
+    ],
+    '!crypto-megolm:matrix.org': [
+      { userId: '@sec:matrix.org', displayName: 'Security Bot', powerLevel: 100 },
+      { userId: '@you:matrix.org', displayName: 'You (Cinny Android)', powerLevel: 0 },
+    ],
+    '!dm-ajbura:matrix.org': [
+      { userId: '@you:matrix.org', displayName: 'You (Cinny Android)', powerLevel: 100 },
+      { userId: '@ajbura:matrix.org', displayName: 'Ajay Bura (Cinny)', powerLevel: 100 },
+    ],
+  };
+
   return {
     isAuthenticated: true,
     authMethod: 'password',
@@ -568,6 +601,7 @@ export function createInitialCinnyState(): CinnyAppState {
     discoverableRooms,
     rooms,
     messagesByRoom,
+    membersByRoom,
     verification: { kind: 'idle' },
     traces: [
       {
@@ -1385,4 +1419,71 @@ export function simulatePushNotificationFlow(
       nowLabel
     ),
   };
+}
+
+export function inviteUserToRoomFlow(
+  state: CinnyAppState,
+  roomId: string,
+  userId: string,
+  nowLabel = '19:47'
+): CinnyAppState {
+  const cleanId = userId.trim();
+  if (!cleanId.startsWith('@') || !cleanId.includes(':')) return state;
+  const current = state.membersByRoom[roomId] ?? [];
+  if (current.some((m) => m.userId.toLowerCase() === cleanId.toLowerCase())) {
+    return state;
+  }
+  const localName = cleanId.slice(1).split(':')[0] || cleanId;
+  const nextMember: RoomMemberEntry = {
+    userId: cleanId,
+    displayName: localName,
+    powerLevel: 0,
+  };
+  return {
+    ...state,
+    membersByRoom: {
+      ...state.membersByRoom,
+      [roomId]: [...current, nextMember],
+    },
+    traces: appendTrace(
+      state.traces,
+      'CinnyClient::invite_user',
+      `room_id="${roomId}", user="${cleanId}"`,
+      'spaces.rs',
+      nowLabel
+    ),
+  };
+}
+
+export interface InlineMarkdownToken {
+  kind: 'text' | 'bold' | 'italic' | 'code';
+  text: string;
+}
+
+export function parseInlineMarkdownTokens(input: string): InlineMarkdownToken[] {
+  if (!input) return [];
+  const tokens: InlineMarkdownToken[] = [];
+  const regex = /(\*\*[^*]+\*\*|`[^`]+`|\*[^*\n]+\*)/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = regex.exec(input)) !== null) {
+    if (match.index > lastIndex) {
+      tokens.push({ kind: 'text', text: input.slice(lastIndex, match.index) });
+    }
+    const raw = match[0];
+    if (raw.startsWith('**') && raw.endsWith('**')) {
+      tokens.push({ kind: 'bold', text: raw.slice(2, -2) });
+    } else if (raw.startsWith('`') && raw.endsWith('`')) {
+      tokens.push({ kind: 'code', text: raw.slice(1, -1) });
+    } else if (raw.startsWith('*') && raw.endsWith('*')) {
+      tokens.push({ kind: 'italic', text: raw.slice(1, -1) });
+    }
+    lastIndex = match.index + raw.length;
+  }
+
+  if (lastIndex < input.length) {
+    tokens.push({ kind: 'text', text: input.slice(lastIndex) });
+  }
+  return tokens;
 }

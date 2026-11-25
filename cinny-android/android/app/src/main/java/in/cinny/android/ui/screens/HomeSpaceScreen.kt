@@ -1,6 +1,8 @@
 package `in`.cinny.android.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -97,7 +99,10 @@ fun HomeSpaceScreen(
         }
     }
 
-    val activeSpaceName = spaces.find { it.roomId == selectedSpaceId }?.name
+    val selectedSpace = remember(spaces, selectedSpaceId) {
+        spaces.find { it.roomId == selectedSpaceId }
+    }
+    val activeSpaceName = selectedSpace?.name
         ?: if (selectedSpaceId == "dm") {
             stringResource(R.string.space_direct_messages)
         } else {
@@ -110,10 +115,10 @@ fun HomeSpaceScreen(
             .background(colors.background)
             .windowInsetsPadding(WindowInsets.safeDrawing)
     ) {
-        // Left Cinny Space Rail (64dp)
+        // Left Cinny Space Rail (66dp matching upstream Sidebar.css.ts)
         Column(
             modifier = Modifier
-                .width(64.dp)
+                .width(66.dp)
                 .fillMaxHeight()
                 .background(colors.background)
                 .padding(vertical = 10.dp),
@@ -156,9 +161,9 @@ fun HomeSpaceScreen(
                             Box(
                                 modifier = Modifier
                                     .align(Alignment.CenterStart)
-                                    .width(4.dp)
-                                    .height(22.dp)
-                                    .clip(RoundedCornerShape(topEnd = 4.dp, bottomEnd = 4.dp))
+                                    .width(3.dp)
+                                    .height(24.dp)
+                                    .clip(RoundedCornerShape(topEnd = 3.dp, bottomEnd = 3.dp))
                                     .background(colors.primary)
                             )
                         }
@@ -166,6 +171,11 @@ fun HomeSpaceScreen(
                             modifier = Modifier
                                 .size(42.dp)
                                 .clip(RoundedCornerShape(if (selected) 12.dp else 21.dp))
+                                .border(
+                                    width = if (selected) 1.5.dp else 1.dp,
+                                    color = if (selected) colors.primary else colors.surfaceLine,
+                                    shape = RoundedCornerShape(if (selected) 12.dp else 21.dp)
+                                )
                                 .clickable { repository.selectSpace(space.roomId) },
                             contentAlignment = Alignment.Center
                         ) {
@@ -269,40 +279,59 @@ fun HomeSpaceScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = activeSpaceName,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = colors.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        val (dotColor, syncText) = when (syncState) {
-                            is SyncConnectionState.Live -> colors.success to stringResource(R.string.sync_live)
-                            is SyncConnectionState.Syncing,
-                            is SyncConnectionState.CatchingUp -> colors.warning to stringResource(R.string.sync_syncing)
-                            is SyncConnectionState.Offline -> colors.onSurfaceMuted to stringResource(R.string.sync_offline)
-                            is SyncConnectionState.TokenInvalid -> colors.critical to stringResource(R.string.sync_token_invalid)
-                            is SyncConnectionState.Error -> colors.critical to (syncState as SyncConnectionState.Error).message
-                        }
-                        Box(
-                            modifier = Modifier
-                                .size(7.dp)
-                                .clip(CircleShape)
-                                .background(dotColor)
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    if (selectedSpace == null) {
+                        CinnyBrandLogo(size = 30.dp)
+                    } else {
+                        MxcAvatar(
+                            name = selectedSpace.name,
+                            seedId = selectedSpace.roomId,
+                            mxcUrl = selectedSpace.avatarMxc,
+                            mxcCachePaths = mxcCachePaths,
+                            onRequestMxc = { repository.requestMxcThumbnail(it, 96) },
+                            size = 30.dp,
+                            cornerRadius = 9.dp
                         )
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = syncText,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = colors.onSurfaceMuted,
+                            text = activeSpaceName,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = colors.onSurface,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            val (dotColor, syncText) = when (syncState) {
+                                is SyncConnectionState.Live -> colors.success to stringResource(R.string.sync_live)
+                                is SyncConnectionState.Syncing,
+                                is SyncConnectionState.CatchingUp -> colors.warning to stringResource(R.string.sync_syncing)
+                                is SyncConnectionState.Offline -> colors.onSurfaceMuted to stringResource(R.string.sync_offline)
+                                is SyncConnectionState.TokenInvalid -> colors.critical to stringResource(R.string.sync_token_invalid)
+                                is SyncConnectionState.Error -> colors.critical to (syncState as SyncConnectionState.Error).message
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .size(7.dp)
+                                    .clip(CircleShape)
+                                    .background(dotColor)
+                            )
+                            Text(
+                                text = syncText,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = colors.onSurfaceMuted,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     }
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -381,6 +410,102 @@ fun HomeSpaceScreen(
                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
                 verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
+                if (selectedSpace != null) {
+                    item(key = "space_lobby_hero_${selectedSpace.roomId}") {
+                        Surface(
+                            color = colors.surfaceVariant.copy(alpha = 0.5f),
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, colors.surfaceLine),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 4.dp, vertical = 6.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    MxcAvatar(
+                                        name = selectedSpace.name,
+                                        seedId = selectedSpace.roomId,
+                                        mxcUrl = selectedSpace.avatarMxc,
+                                        mxcCachePaths = mxcCachePaths,
+                                        onRequestMxc = { repository.requestMxcThumbnail(it, 96) },
+                                        size = 44.dp,
+                                        cornerRadius = 12.dp
+                                    )
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = selectedSpace.name,
+                                            style = MaterialTheme.typography.titleSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = colors.onSurface,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        val heroSubtitle = selectedSpace.topic?.takeIf { it.isNotBlank() }
+                                            ?: "${selectedSpace.childRoomIds.size} rooms"
+                                        Text(
+                                            text = heroSubtitle,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = colors.onSurfaceMuted,
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    OutlinedButton(
+                                        onClick = {
+                                            repository.loadSpaceHierarchy(selectedSpace.roomId)
+                                            showExploreSpaceDialog = true
+                                        },
+                                        shape = RoundedCornerShape(8.dp),
+                                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Icon(
+                                            Icons.Outlined.AccountTree,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(15.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            stringResource(R.string.space_hero_browse_channels),
+                                            style = MaterialTheme.typography.labelMedium,
+                                            maxLines = 1
+                                        )
+                                    }
+                                    FilledTonalButton(
+                                        onClick = { showCreateHub = true },
+                                        shape = RoundedCornerShape(8.dp),
+                                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Icon(
+                                            Icons.Outlined.Add,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(15.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            stringResource(R.string.space_hero_new_room),
+                                            style = MaterialTheme.typography.labelMedium,
+                                            maxLines = 1
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
                 if (invitedRooms.isNotEmpty()) {
                     item {
                         CollapsibleRoomCategoryHeader(
@@ -548,9 +673,9 @@ private fun SpaceRailIconButton(
             Box(
                 modifier = Modifier
                     .align(Alignment.CenterStart)
-                    .width(4.dp)
-                    .height(22.dp)
-                    .clip(RoundedCornerShape(topEnd = 4.dp, bottomEnd = 4.dp))
+                    .width(3.dp)
+                    .height(24.dp)
+                    .clip(RoundedCornerShape(topEnd = 3.dp, bottomEnd = 3.dp))
                     .background(colors.primary)
             )
         }
@@ -559,6 +684,11 @@ private fun SpaceRailIconButton(
                 .size(42.dp)
                 .clip(RoundedCornerShape(if (selected) 12.dp else 21.dp))
                 .background(if (selected) colors.primaryContainer else colors.surface)
+                .border(
+                    width = 1.dp,
+                    color = if (selected) colors.primary else colors.surfaceLine,
+                    shape = RoundedCornerShape(if (selected) 12.dp else 21.dp)
+                )
                 .clickable(onClick = onClick),
             contentAlignment = Alignment.Center
         ) {

@@ -12,7 +12,9 @@ import {
   editMarkdownMessageFlow,
   filterRooms,
   getSpaceUnreadSummary,
+  inviteUserToRoomFlow,
   joinDiscoverableSpaceRoom,
+  parseInlineMarkdownTokens,
   recoverSecretBackupFlow,
   redactMessage,
   selectRoom,
@@ -189,4 +191,31 @@ test('SSO login, 4S recovery, encrypted media cache, room creation, discovery, a
   state = simulatePushNotificationFlow(state);
   assert.equal(state.activePushBanner?.isEncrypted, true);
   assert.equal(state.traces[0].fnName, 'CinnyClient::process_push_event');
+});
+
+test('inviteUserToRoomFlow validates MXID, prevents duplicates, and appends trace', () => {
+  const initial = createInitialCinnyState();
+  const invalid = inviteUserToRoomFlow(initial, '!cinny-dev:matrix.org', 'not-an-mxid');
+  assert.equal(invalid, initial);
+
+  const invited = inviteUserToRoomFlow(initial, '!cinny-dev:matrix.org', '@kai:matrix.org');
+  const members = invited.membersByRoom['!cinny-dev:matrix.org'];
+  assert.equal(members.some((m) => m.userId === '@kai:matrix.org'), true);
+  assert.equal(invited.traces[0].fnName, 'CinnyClient::invite_user');
+
+  const duplicate = inviteUserToRoomFlow(invited, '!cinny-dev:matrix.org', '@kai:matrix.org');
+  assert.equal(duplicate.membersByRoom['!cinny-dev:matrix.org'].length, members.length);
+});
+
+test('parseInlineMarkdownTokens parses bold, italic, and inline code cleanly', () => {
+  const tokens = parseInlineMarkdownTokens('Hello **Rust** *Matrix* `UniFFI`!');
+  assert.deepEqual(tokens, [
+    { kind: 'text', text: 'Hello ' },
+    { kind: 'bold', text: 'Rust' },
+    { kind: 'text', text: ' ' },
+    { kind: 'italic', text: 'Matrix' },
+    { kind: 'text', text: ' ' },
+    { kind: 'code', text: 'UniFFI' },
+    { kind: 'text', text: '!' },
+  ]);
 });
