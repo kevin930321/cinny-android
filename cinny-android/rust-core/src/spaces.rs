@@ -287,7 +287,7 @@ pub async fn create_space(
         });
     }
     let creation_content: Raw<CreationContent> =
-        serde_json::from_str(r#"{"type":"m.space"}"#).map_err(|e| CinnyError::Internal {
+        serde_json::from_str(r#"{"type":"m.space"}"#).map_err(|e| CinnyError::InvalidInput {
             detail: format!("Failed to construct Space creation content: {e}"),
         })?;
 
