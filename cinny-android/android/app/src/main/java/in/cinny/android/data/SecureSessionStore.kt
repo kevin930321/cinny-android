@@ -8,12 +8,6 @@ import org.json.JSONObject
 import uniffi.cinny_core.CinnyAuthSession
 import java.security.SecureRandom
 
-enum class ThemePreference {
-    FollowSystem,
-    Light,
-    Dark
-}
-
 class SecureSessionStore(context: Context) {
     private val masterKey = MasterKey.Builder(context)
         .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
@@ -93,13 +87,66 @@ class SecureSessionStore(context: Context) {
         prefs.getString(KEY_PUSH_GATEWAY, "https://up.cinny.in/_matrix/push/v1/notify")
             ?: "https://up.cinny.in/_matrix/push/v1/notify"
 
-    fun loadThemePreference(): ThemePreference {
-        val name = prefs.getString(KEY_THEME_PREF, ThemePreference.FollowSystem.name)
-        return runCatching { ThemePreference.valueOf(name!!) }.getOrDefault(ThemePreference.FollowSystem)
+    fun loadCinnySettings(): CinnySettings {
+        val raw = prefs.getString(KEY_CINNY_SETTINGS, null)
+        if (raw.isNullOrBlank()) {
+            val legacyTheme = prefs.getString(KEY_THEME_PREF, null)
+            val migrated = when (legacyTheme) {
+                "Light" -> CinnyThemeMode.Light
+                "Dark" -> CinnyThemeMode.Dark
+                else -> CinnyThemeMode.System
+            }
+            return CinnySettings(themeMode = migrated)
+        }
+        return try {
+            val obj = JSONObject(raw)
+            CinnySettings(
+                themeMode = runCatching {
+                    CinnyThemeMode.valueOf(obj.optString("themeMode", CinnyThemeMode.System.name))
+                }.getOrDefault(CinnyThemeMode.System),
+                messageLayout = runCatching {
+                    CinnyMessageLayout.valueOf(obj.optString("messageLayout", CinnyMessageLayout.Modern.name))
+                }.getOrDefault(CinnyMessageLayout.Modern),
+                bubbleOwnRight = obj.optBoolean("bubbleOwnRight", true),
+                messageSpacing = runCatching {
+                    CinnyMessageSpacing.valueOf(obj.optString("messageSpacing", CinnyMessageSpacing.Normal.name))
+                }.getOrDefault(CinnyMessageSpacing.Normal),
+                use24HourClock = obj.optBoolean("use24HourClock", true),
+                dateFormat = runCatching {
+                    CinnyDateFormat.valueOf(obj.optString("dateFormat", CinnyDateFormat.Short.name))
+                }.getOrDefault(CinnyDateFormat.Short),
+                showRoomAvatars = obj.optBoolean("showRoomAvatars", true),
+                sortRoomsByActivity = obj.optBoolean("sortRoomsByActivity", true),
+                hideActivity = obj.optBoolean("hideActivity", false),
+                markdownEnabled = obj.optBoolean("markdownEnabled", true),
+                enterForNewline = obj.optBoolean("enterForNewline", false),
+                legacyUsernameColor = obj.optBoolean("legacyUsernameColor", false),
+                autoLoadMedia = obj.optBoolean("autoLoadMedia", true),
+                developerTools = obj.optBoolean("developerTools", false)
+            )
+        } catch (_: Exception) {
+            CinnySettings()
+        }
     }
 
-    fun saveThemePreference(pref: ThemePreference) {
-        prefs.edit().putString(KEY_THEME_PREF, pref.name).apply()
+    fun saveCinnySettings(settings: CinnySettings) {
+        val json = JSONObject().apply {
+            put("themeMode", settings.themeMode.name)
+            put("messageLayout", settings.messageLayout.name)
+            put("bubbleOwnRight", settings.bubbleOwnRight)
+            put("messageSpacing", settings.messageSpacing.name)
+            put("use24HourClock", settings.use24HourClock)
+            put("dateFormat", settings.dateFormat.name)
+            put("showRoomAvatars", settings.showRoomAvatars)
+            put("sortRoomsByActivity", settings.sortRoomsByActivity)
+            put("hideActivity", settings.hideActivity)
+            put("markdownEnabled", settings.markdownEnabled)
+            put("enterForNewline", settings.enterForNewline)
+            put("legacyUsernameColor", settings.legacyUsernameColor)
+            put("autoLoadMedia", settings.autoLoadMedia)
+            put("developerTools", settings.developerTools)
+        }
+        prefs.edit().putString(KEY_CINNY_SETTINGS, json.toString()).apply()
     }
 
     private companion object {
@@ -109,5 +156,6 @@ class SecureSessionStore(context: Context) {
         const val KEY_PUSH_ENDPOINT = "unifiedpush_endpoint"
         const val KEY_PUSH_GATEWAY = "push_gateway_url"
         const val KEY_THEME_PREF = "theme_preference"
+        const val KEY_CINNY_SETTINGS = "cinny_settings_json"
     }
 }

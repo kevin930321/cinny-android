@@ -6,11 +6,16 @@ import { SourceExplorer } from './components/SourceExplorer';
 import { StudioTab, TopNav } from './components/TopNav';
 import {
   CinnyAppState,
+  CinnySettingsState,
+  RoomNotificationLevel,
+  acceptRoomInviteFlow,
   completeSsoLoginFlow,
   confirmSasVerificationFlow,
   createInitialCinnyState,
   createRoomFlow,
+  createSpaceFlow,
   decryptMediaPreviewFlow,
+  editMarkdownMessageFlow,
   joinDiscoverableSpaceRoom,
   recoverSecretBackupFlow,
   redactMessage,
@@ -22,6 +27,9 @@ import {
   simulatePushNotificationFlow,
   startSasVerificationFlow,
   toggleReactionOnMessage,
+  updateCinnySettingsFlow,
+  updateOwnDisplayNameFlow,
+  updateRoomSettingsFlow,
 } from './lib/cinnyEngine';
 
 function currentTimeLabel(): string {
@@ -71,6 +79,15 @@ export default function App() {
     );
   };
 
+  const handleLogout = () => {
+    setCinnyState((prev) => ({
+      ...prev,
+      isAuthenticated: false,
+      activeRoomId: null,
+      activeThreadEventId: null,
+    }));
+  };
+
   const handleSelectSpace = (spaceFilter: 'all' | 'dm' | string) => {
     setCinnyState((prev) => ({
       ...prev,
@@ -90,8 +107,16 @@ export default function App() {
     );
   };
 
+  const handleCreateSpace = (name: string, topic: string) => {
+    setCinnyState((prev) => createSpaceFlow(prev, name, topic, currentClockSec()));
+  };
+
   const handleJoinDiscoverableRoom = (roomId: string) => {
     setCinnyState((prev) => joinDiscoverableSpaceRoom(prev, roomId, currentClockSec()));
+  };
+
+  const handleAcceptInvite = (roomId: string) => {
+    setCinnyState((prev) => acceptRoomInviteFlow(prev, roomId, currentClockSec()));
   };
 
   const handleBackToSpaces = () => {
@@ -102,8 +127,19 @@ export default function App() {
     }));
   };
 
-  const handleToggleTheme = () => {
-    setCinnyState((prev) => ({ ...prev, darkTheme: !prev.darkTheme }));
+  const handleUpdateSettings = (patch: Partial<CinnySettingsState>) => {
+    setCinnyState((prev) => updateCinnySettingsFlow(prev, patch, currentClockSec()));
+  };
+
+  const handleUpdateDisplayName = (name: string) => {
+    setCinnyState((prev) => updateOwnDisplayNameFlow(prev, name, currentClockSec()));
+  };
+
+  const handleUpdateRoomSettings = (
+    roomId: string,
+    patch: { name?: string; topic?: string; notificationLevel?: RoomNotificationLevel }
+  ) => {
+    setCinnyState((prev) => updateRoomSettingsFlow(prev, roomId, patch, currentClockSec()));
   };
 
   const handleSendMessage = (markdown: string, replyToId?: string | null) => {
@@ -115,6 +151,20 @@ export default function App() {
             markdown,
             replyToId,
             currentTimeLabel()
+          )
+        : prev
+    );
+  };
+
+  const handleEditMessage = (eventId: string, body: string) => {
+    setCinnyState((prev) =>
+      prev.activeRoomId
+        ? editMarkdownMessageFlow(
+            prev,
+            prev.activeRoomId,
+            eventId,
+            body,
+            currentClockSec()
           )
         : prev
     );
@@ -218,7 +268,7 @@ export default function App() {
               以 Rust 驅動的 Cinny 原生安卓 Matrix 客戶端
             </h1>
             <p className="mt-1.5 max-w-3xl text-sm text-slate-600">
-              參考 cinnyapp/cinny 設計語言，核心採用 matrix-sdk 0.16、SSO / 4S 金鑰備份、AES-CTR 加密媒體與 UnifiedPush，原生 Android 介面採用 Jetpack Compose Material 3。
+              對齊 cinnyapp/cinny 設計語言與功能架構：支援 Light / Silver / Dark / Butter 四款主題、Modern / Compact / Bubble 訊息排版、完整設定中心、Room Settings、Explore / Inbox 與 matrix-sdk 0.16 原生核心。
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2 text-xs text-slate-500 tabular-nums">
@@ -237,13 +287,19 @@ export default function App() {
                 state={cinnyState}
                 onLogin={handleLogin}
                 onSsoLogin={handleSsoLogin}
+                onLogout={handleLogout}
                 onSelectSpace={handleSelectSpace}
                 onSelectRoom={handleSelectRoom}
                 onCreateRoom={handleCreateRoom}
+                onCreateSpace={handleCreateSpace}
                 onJoinDiscoverableRoom={handleJoinDiscoverableRoom}
+                onAcceptInvite={handleAcceptInvite}
                 onBackToSpaces={handleBackToSpaces}
-                onToggleTheme={handleToggleTheme}
+                onUpdateSettings={handleUpdateSettings}
+                onUpdateDisplayName={handleUpdateDisplayName}
+                onUpdateRoomSettings={handleUpdateRoomSettings}
                 onSendMessage={handleSendMessage}
+                onEditMessage={handleEditMessage}
                 onSendMediaAttachment={handleSendMediaAttachment}
                 onDecryptMedia={handleDecryptMedia}
                 onToggleReaction={handleToggleReaction}

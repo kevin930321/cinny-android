@@ -1,11 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  acceptRoomInviteFlow,
+  colorMXID,
   completeSsoLoginFlow,
   confirmSasVerificationFlow,
   createInitialCinnyState,
   createRoomFlow,
+  createSpaceFlow,
   decryptMediaPreviewFlow,
+  editMarkdownMessageFlow,
   filterRooms,
   getSpaceUnreadSummary,
   joinDiscoverableSpaceRoom,
@@ -19,6 +23,9 @@ import {
   simulatePushNotificationFlow,
   startSasVerificationFlow,
   toggleReactionOnMessage,
+  updateCinnySettingsFlow,
+  updateOwnDisplayNameFlow,
+  updateRoomSettingsFlow,
 } from './cinnyEngine';
 
 test('getSpaceUnreadSummary aggregates child room unread and highlight counts', () => {
@@ -37,7 +44,7 @@ test('getSpaceUnreadSummary aggregates child room unread and highlight counts', 
 
 test('filterRooms handles Space, DirectMessage, and search queries', () => {
   const state = createInitialCinnyState();
-  assert.equal(filterRooms(state.rooms, 'all', '').length, 5);
+  assert.equal(filterRooms(state.rooms, 'all', '').length, 6);
   assert.equal(filterRooms(state.rooms, 'dm', '').length, 1);
   assert.equal(filterRooms(state.rooms, '!rust-matrix:matrix.org', '').length, 2);
   assert.equal(filterRooms(state.rooms, 'all', 'megolm').length, 1);
@@ -53,7 +60,7 @@ test('selectRoom clears unread counts and appends UniFFI trace', () => {
   assert.equal(next.traces[0].fnName, 'subscribe_room_timeline');
 });
 
-test('sendMarkdownMessage appends message with optional reply preview and ignores blank input', () => {
+test('sendMarkdownMessage and editMarkdownMessageFlow update message timeline', () => {
   const state = createInitialCinnyState();
   const unchanged = sendMarkdownMessage(state, '!cinny-dev:matrix.org', '   ');
   assert.equal(unchanged, state);
@@ -70,6 +77,11 @@ test('sendMarkdownMessage appends message with optional reply preview and ignore
   assert.equal(last.isOwn, true);
   assert.equal(last.replyTo?.eventId, '$evt_101');
   assert.equal(next.traces[0].fnName, 'send_markdown_message');
+
+  const edited = editMarkdownMessageFlow(next, '!cinny-dev:matrix.org', last.eventId, 'Edited message');
+  const editedMsg = edited.messagesByRoom['!cinny-dev:matrix.org'].find((m) => m.eventId === last.eventId);
+  assert.equal(editedMsg?.body, 'Edited message');
+  assert.equal(editedMsg?.isEdited, true);
 });
 
 test('toggleReactionOnMessage adds, increments, and removes own reaction', () => {
@@ -103,6 +115,39 @@ test('SAS verification transitions from idle -> sas -> confirmed', () => {
   }
   const confirmed = confirmSasVerificationFlow(sas, 'TEST_DEV');
   assert.equal(confirmed.verification.kind, 'confirmed');
+});
+
+test('Cinny settings, Butter theme, colorMXID, RoomSettings, Create Space, and Invite work', () => {
+  let state = createInitialCinnyState();
+  state = updateCinnySettingsFlow(state, { themeMode: 'Butter', messageLayout: 'Bubble' });
+  assert.equal(state.settings.themeMode, 'Butter');
+  assert.equal(state.settings.messageLayout, 'Bubble');
+  assert.equal(state.darkTheme, true);
+
+  state = updateCinnySettingsFlow(state, { themeMode: 'Silver' });
+  assert.equal(state.darkTheme, false);
+
+  const c1 = colorMXID('@ajbura:matrix.org', true);
+  const c2 = colorMXID('@ajbura:matrix.org', true);
+  assert.equal(c1, c2);
+
+  state = updateOwnDisplayNameFlow(state, 'Cinny Tester');
+  assert.equal(state.displayName, 'Cinny Tester');
+
+  state = updateRoomSettingsFlow(state, '!cinny-dev:matrix.org', {
+    name: 'cinny-android-v2',
+    notificationLevel: 'Mute',
+  });
+  const updatedRoom = state.rooms.find((r) => r.roomId === '!cinny-dev:matrix.org');
+  assert.equal(updatedRoom?.name, 'cinny-android-v2');
+  assert.equal(updatedRoom?.notificationLevel, 'Mute');
+
+  state = createSpaceFlow(state, 'Compose UI', 'Design tokens');
+  assert.equal(state.spaces.some((s) => s.name === 'Compose UI'), true);
+
+  state = acceptRoomInviteFlow(state, '!invite-compose:matrix.org');
+  const accepted = state.rooms.find((r) => r.roomId === '!invite-compose:matrix.org');
+  assert.equal(accepted?.category, 'OrphanRoom');
 });
 
 test('simulateIncomingSyncMessage increments unread for inactive room', () => {

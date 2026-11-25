@@ -34,16 +34,22 @@ const ARCHITECTURE_MAPPING: MappingRow[] = [
     fileRef: 'rust-core/src/push.rs',
   },
   {
-    layer: 'Spaces 探索、建立與管理',
-    cinnyWeb: 'm.space.child DAG + Hierarchy API',
-    rustAndroid: 'browse_space_hierarchy / create_room / invite / members',
+    layer: 'Spaces、公開目錄 Explore 與房間設定',
+    cinnyWeb: 'Space Sidebar + Explore + RoomSettings + Inbox',
+    rustAndroid: 'create_space / search_public_rooms / update_room_* / notification_settings',
     fileRef: 'rust-core/src/spaces.rs',
   },
   {
-    layer: '時間軸、討論串與本地搜尋',
-    cinnyWeb: 'RoomTimeline + Thread Drawer',
-    rustAndroid: 'TimelineFocus::Thread + send_reply + 離線解密搜尋',
+    layer: '時間軸、討論串、輸入提示與事件原始碼',
+    cinnyWeb: 'Modern/Compact/Bubble + Typing + View Source',
+    rustAndroid: 'TimelineFocus::Thread + subscribe_room_typing + original_json',
     fileRef: 'rust-core/src/timeline.rs',
+  },
+  {
+    layer: 'Cinny 主題系統與原生設定中心',
+    cinnyWeb: 'Light/Silver/Dark/Butter + colorMXID + Settings',
+    rustAndroid: 'CinnyTheme + CinnyPreferences + SettingsScreen + RoomSettingsScreen',
+    fileRef: 'android/.../ui/screens/SettingsScreen.kt',
   },
 ];
 
@@ -67,10 +73,10 @@ export function ArchitectureView() {
     <div className="space-y-6">
       <section className="rounded-2xl border border-slate-200 bg-white p-6">
         <h2 className="text-lg font-semibold text-slate-900">
-          Cinny Web 至 Rust 原生安卓架構對照 (v0.3.0 完整版)
+          Cinny Web 至 Rust 原生安卓架構對照 (v0.4.0 Cinny UI 深度對齊版)
         </h2>
         <p className="mt-1 text-sm text-slate-600">
-          對齊 cinnyapp/cinny 完整功能矩陣：支援密碼與 SSO 登入、4S 恢復金鑰備份、AES-CTR 加密媒體上傳與解密、Thread 討論串、UnifiedPush 背景推播與完整房間管理。
+          全面參考 cinnyapp/cinny WebUI 設計系統與功能結構：支援 Light / Silver / Dark / Butter 四款主題、Modern / Compact / Bubble 排版、完整設定頁面、房間設定、Explore 探索、Inbox 收件匣與即時 Typing 狀態。
         </p>
 
         <div className="mt-5 overflow-x-auto">
@@ -106,26 +112,26 @@ export function ArchitectureView() {
       <section className="grid grid-cols-1 gap-6 md:grid-cols-3">
         <div className="rounded-2xl border border-slate-200 bg-white p-5">
           <h3 className="text-sm font-semibold text-slate-900">
-            01. SSO、4S 備份與裝置驗證
+            01. Cinny 主題、排版與設定中心
           </h3>
           <p className="mt-2 text-xs leading-relaxed text-slate-600">
-            透過 <code className="font-mono text-slate-900">CustomTabsIntent</code> 與 <code className="font-mono text-slate-900">cinny://sso</code> 承接 SSO Token，並支援 <code className="font-mono text-slate-900">4S Recovery Key</code> 還原歷史 Megolm 金鑰。
+            移植 <code className="font-mono text-slate-900">Light / Silver / Dark / Butter</code> 色票與 <code className="font-mono text-slate-900">colorMXID</code>，並在 <code className="font-mono text-slate-900">SettingsScreen</code> 集中管理外觀、個人資料、推播與開發者工具。
           </p>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-5">
           <h3 className="text-sm font-semibold text-slate-900">
-            02. AES-CTR 加密媒體與 Threads
+            02. Space Rail、Explore 與 Inbox
           </h3>
           <p className="mt-2 text-xs leading-relaxed text-slate-600">
-            整合 <code className="font-mono text-slate-900">media.rs</code> 加解密快取與 <code className="font-mono text-slate-900">FileProvider</code>，並透過 <code className="font-mono text-slate-900">TimelineFocus::Thread</code> 驅動原生討論串。
+            比照 Cinny WebUI 打造 64dp Space 導覽條與分類清單，並於底部固定提供建房 / 建立 Space、公開房間目錄探索與邀請通知收件匣。
           </p>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-5">
           <h3 className="text-sm font-semibold text-slate-900">
-            03. UnifiedPush 與房間完整控制
+            03. 房間設定、Typing 與事件原始碼
           </h3>
           <p className="mt-2 text-xs leading-relaxed text-slate-600">
-            <code className="font-mono text-slate-900">PushSyncWorker</code> 於背景恢復 SQLite 並解密通知內容；UI 亦涵蓋建房、邀請、Space 頻道探索與離線搜尋。
+            可調整房間名稱、主題、通知靜音等級與成員權限；時間軸支援即時 Typing 指示器與開發者模式 <code className="font-mono text-slate-900">original_json</code> 事件檢視。
           </p>
         </div>
       </section>

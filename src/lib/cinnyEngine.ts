@@ -1,4 +1,140 @@
-export type RoomCategory = 'DirectMessage' | 'SpaceChannel' | 'OrphanRoom';
+export type RoomCategory = 'DirectMessage' | 'SpaceChannel' | 'OrphanRoom' | 'Invited';
+
+export type CinnyThemeMode = 'Light' | 'Silver' | 'Dark' | 'Butter';
+export type CinnyMessageLayout = 'Modern' | 'Compact' | 'Bubble';
+export type RoomNotificationLevel = 'AllMessages' | 'MentionsAndKeywordsOnly' | 'Mute';
+
+export interface CinnyThemePalette {
+  mode: CinnyThemeMode;
+  isDark: boolean;
+  background: string;
+  surface: string;
+  surfaceVariant: string;
+  line: string;
+  onSurface: string;
+  onSurfaceMuted: string;
+  primary: string;
+  onPrimary: string;
+  primaryContainer: string;
+  onPrimaryContainer: string;
+  success: string;
+  warning: string;
+  critical: string;
+}
+
+export const CINNY_THEME_PALETTES: Record<CinnyThemeMode, CinnyThemePalette> = {
+  Light: {
+    mode: 'Light',
+    isDark: false,
+    background: '#F5F5F5',
+    surface: '#FFFFFF',
+    surfaceVariant: '#EAEAEA',
+    line: '#E0E0E0',
+    onSurface: '#0E0E0E',
+    onSurfaceMuted: '#525252',
+    primary: '#1245A8',
+    onPrimary: '#FFFFFF',
+    primaryContainer: '#C4D0E9',
+    onPrimaryContainer: '#0D3076',
+    success: '#017343',
+    warning: '#864300',
+    critical: '#9D0F0F',
+  },
+  Silver: {
+    mode: 'Silver',
+    isDark: false,
+    background: '#DEDEDE',
+    surface: '#EAEAEA',
+    surfaceVariant: '#D2D2D2',
+    line: '#C7C7C7',
+    onSurface: '#0C0C0C',
+    onSurfaceMuted: '#474747',
+    primary: '#1245A8',
+    onPrimary: '#FFFFFF',
+    primaryContainer: '#C4D0E9',
+    onPrimaryContainer: '#0D3076',
+    success: '#017343',
+    warning: '#864300',
+    critical: '#9D0F0F',
+  },
+  Dark: {
+    mode: 'Dark',
+    isDark: true,
+    background: '#1A1A1A',
+    surface: '#262626',
+    surfaceVariant: '#333333',
+    line: '#3A3A3A',
+    onSurface: '#F2F2F2',
+    onSurfaceMuted: '#A6A6A6',
+    primary: '#BDB6EC',
+    onPrimary: '#2C2843',
+    primaryContainer: '#413C65',
+    onPrimaryContainer: '#E3E1F7',
+    success: '#85E0BA',
+    warning: '#E3BA91',
+    critical: '#E69D9D',
+  },
+  Butter: {
+    mode: 'Butter',
+    isDark: true,
+    background: '#1A1916',
+    surface: '#262621',
+    surfaceVariant: '#33322C',
+    line: '#3C3B34',
+    onSurface: '#FFFBDE',
+    onSurfaceMuted: '#ACA78D',
+    primary: '#BDB6EC',
+    onPrimary: '#2C2843',
+    primaryContainer: '#413C65',
+    onPrimaryContainer: '#E3E1F7',
+    success: '#85E0BA',
+    warning: '#E3BA91',
+    critical: '#E69D9D',
+  },
+};
+
+const LIGHT_MXID_COLORS = [
+  '#007AE6',
+  '#990094',
+  '#00996E',
+  '#E60041',
+  '#E65C00',
+  '#009699',
+  '#0600E6',
+  '#4EB300',
+];
+
+const DARK_MXID_COLORS = [
+  '#80C4FF',
+  '#FF99FB',
+  '#66FFD4',
+  '#FF80A4',
+  '#FFA266',
+  '#33FAFF',
+  '#9D99FF',
+  '#BBFF99',
+];
+
+export function colorMXID(userId: string, isDark: boolean): string {
+  let hash = 0;
+  for (let i = 0; i < userId.length; i++) {
+    hash = (hash << 5) - hash + userId.charCodeAt(i);
+    hash |= 0;
+  }
+  const idx = Math.abs(hash) % 8;
+  return isDark ? DARK_MXID_COLORS[idx] : LIGHT_MXID_COLORS[idx];
+}
+
+export interface CinnySettingsState {
+  themeMode: CinnyThemeMode;
+  messageLayout: CinnyMessageLayout;
+  bubbleOwnRight: boolean;
+  showRoomAvatars: boolean;
+  sortRoomsByActivity: boolean;
+  use24HourClock: boolean;
+  markdownEnabled: boolean;
+  developerTools: boolean;
+}
 
 export interface SpaceNode {
   roomId: string;
@@ -12,6 +148,7 @@ export interface SpaceNode {
 export interface DiscoverableSpaceRoom {
   roomId: string;
   spaceId: string;
+  canonicalAlias?: string;
   name: string;
   topic: string;
   memberCount: number;
@@ -70,6 +207,8 @@ export interface RoomSummary {
   category: RoomCategory;
   unreadCount: number;
   highlightCount: number;
+  lastActivityTsMs: number;
+  notificationLevel?: RoomNotificationLevel;
   parentSpaceIds: string[];
 }
 
@@ -100,7 +239,9 @@ export interface CinnyAppState {
   authMethod: 'password' | 'sso';
   homeserverUrl: string;
   currentUserId: string;
+  displayName: string;
   darkTheme: boolean;
+  settings: CinnySettingsState;
   recoveryUnlocked: boolean;
   pushEnabled: boolean;
   pushEndpoint: string;
@@ -156,17 +297,21 @@ export function createInitialCinnyState(): CinnyAppState {
       category: 'SpaceChannel',
       unreadCount: 0,
       highlightCount: 0,
+      lastActivityTsMs: 1795491300000,
+      notificationLevel: 'AllMessages',
       parentSpaceIds: ['!cinny-space:matrix.org'],
     },
     {
       roomId: '!cinny-design:matrix.org',
       name: 'folds-ui-tokens',
-      topic: 'Cinny 設計系統色票、Space Rail 與行動端單手操作動線',
+      topic: 'Cinny 設計系統色票、Space Rail、Settings 與行動端單手操作動線',
       isEncrypted: false,
       isDirect: false,
       category: 'SpaceChannel',
       unreadCount: 3,
       highlightCount: 0,
+      lastActivityTsMs: 1795488600000,
+      notificationLevel: 'AllMessages',
       parentSpaceIds: ['!cinny-space:matrix.org'],
     },
     {
@@ -178,6 +323,8 @@ export function createInitialCinnyState(): CinnyAppState {
       category: 'SpaceChannel',
       unreadCount: 2,
       highlightCount: 1,
+      lastActivityTsMs: 1795489800000,
+      notificationLevel: 'MentionsAndKeywordsOnly',
       parentSpaceIds: ['!rust-matrix:matrix.org'],
     },
     {
@@ -189,6 +336,8 @@ export function createInitialCinnyState(): CinnyAppState {
       category: 'SpaceChannel',
       unreadCount: 0,
       highlightCount: 0,
+      lastActivityTsMs: 1795484700000,
+      notificationLevel: 'AllMessages',
       parentSpaceIds: ['!rust-matrix:matrix.org'],
     },
     {
@@ -200,6 +349,21 @@ export function createInitialCinnyState(): CinnyAppState {
       category: 'DirectMessage',
       unreadCount: 1,
       highlightCount: 1,
+      lastActivityTsMs: 1795491600000,
+      notificationLevel: 'AllMessages',
+      parentSpaceIds: [],
+    },
+    {
+      roomId: '!invite-compose:matrix.org',
+      name: 'jetpack-compose-matrix',
+      topic: '邀請您加入原生 Android UI 設計交流頻道',
+      isEncrypted: true,
+      isDirect: false,
+      category: 'Invited',
+      unreadCount: 1,
+      highlightCount: 0,
+      lastActivityTsMs: 1795491700000,
+      notificationLevel: 'AllMessages',
       parentSpaceIds: [],
     },
   ];
@@ -208,18 +372,20 @@ export function createInitialCinnyState(): CinnyAppState {
     {
       roomId: '!cinny-releases:matrix.org',
       spaceId: '!cinny-space:matrix.org',
-      name: 'cinny-releases',
-      topic: 'Cinny Web 與 Android 原生版本更新公告',
-      memberCount: 1420,
+      canonicalAlias: '#cinny:matrix.org',
+      name: 'Cinny Space & Releases',
+      topic: 'Cinny Web 與 Android 原生版本更新公告與社群討論',
+      memberCount: 2480,
       isEncrypted: false,
       joined: false,
     },
     {
       roomId: '!rust-unifiedpush:matrix.org',
       spaceId: '!rust-matrix:matrix.org',
-      name: 'unifiedpush-android',
-      topic: 'WorkManager 與 Rust 背景解密推播實作交流',
-      memberCount: 318,
+      canonicalAlias: '#matrix-rust-sdk:matrix.org',
+      name: 'Matrix Rust SDK',
+      topic: 'WorkManager、UniFFI 與 matrix-sdk 0.16 技術交流',
+      memberCount: 912,
       isEncrypted: true,
       joined: false,
     },
@@ -235,7 +401,7 @@ export function createInitialCinnyState(): CinnyAppState {
         senderAvatarUrl: '/src/assets/images/avatar_developer_1795491900681.jpg',
         timestampLabel: '19:24',
         timestampMs: 1795490640000,
-        body: '歡迎來到 Cinny Native Android！現在已完整整合 SSO/OIDC、4S 金鑰備份還原、加密媒體與 UnifiedPush 背景推播。',
+        body: 'Cinny Android UI 已全面升級：支援 Light / Silver / Dark / Butter 主題、Modern / Compact / Bubble 訊息排版、完整設定頁面與 Explore 公開頻道探索！',
         isEdited: false,
         isRedacted: false,
         isEncrypted: true,
@@ -248,7 +414,7 @@ export function createInitialCinnyState(): CinnyAppState {
             senderName: 'Lin (Rust Core)',
             timestampLabel: '19:26',
             timestampMs: 1795490760000,
-            body: 'Rust `TimelineFocus::Thread` 與 `media.rs` AES-CTR 加密附件已全面接通。',
+            body: 'Rust `TimelineFocus::Thread`、`search_public_rooms` 與 `subscribe_room_typing` 已全面接通。',
             isEdited: false,
             isRedacted: false,
             isEncrypted: true,
@@ -293,7 +459,7 @@ export function createInitialCinnyState(): CinnyAppState {
         senderName: 'Ajay (Old Session)',
         timestampLabel: '19:35',
         timestampMs: 1795491300000,
-        body: '等待 Megolm 加密金鑰中…（請於安全中心輸入 4S Recovery Key 解鎖歷史訊息）',
+        body: '等待 Megolm 加密金鑰中…（請於設定 → 裝置與安全輸入 4S Recovery Key 解鎖）',
         isEdited: false,
         isRedacted: false,
         isEncrypted: true,
@@ -311,7 +477,7 @@ export function createInitialCinnyState(): CinnyAppState {
         senderName: 'Mira',
         timestampLabel: '18:50',
         timestampMs: 1795488600000,
-        body: 'Jetpack Compose Material 3 的色彩表已對齊 Cinny 的高對比淺色與暗黑 Onyx 模式。',
+        body: '已完整移植 Cinny WebUI 的 Butter (#1A1916 / #FFFBDE) 與 Dark (#1A1A1A / #BDB6EC) 色票與 `colorMXID` 雜湊色階。',
         isEdited: false,
         isRedacted: false,
         isEncrypted: false,
@@ -328,7 +494,7 @@ export function createInitialCinnyState(): CinnyAppState {
         senderName: 'Lin (Rust Core)',
         timestampLabel: '19:10',
         timestampMs: 1795489800000,
-        body: '已啟用 `uniffi = { version = "0.29", features = ["tokio"] }`，涵蓋 SSO Token、4S 備份、Thread 與 Media 下載快取。',
+        body: '已啟用 `uniffi = { version = "0.29", features = ["tokio"] }`，涵蓋 Profile、Public Directory、Typing 通知與房間設定。',
         isEdited: true,
         isRedacted: false,
         isEncrypted: true,
@@ -363,7 +529,7 @@ export function createInitialCinnyState(): CinnyAppState {
         senderAvatarUrl: '/src/assets/images/avatar_developer_1795491900681.jpg',
         timestampLabel: '19:40',
         timestampMs: 1795491600000,
-        body: '你可以直接點右上角的「下載專案 ZIP」取得完整 v0.3.0 Cargo + Gradle 原生專案。',
+        body: '你可以直接點右上角的「下載專案 ZIP」取得完整 Rust + Jetpack Compose 原生專案。',
         isEdited: false,
         isRedacted: false,
         isEncrypted: true,
@@ -379,7 +545,18 @@ export function createInitialCinnyState(): CinnyAppState {
     authMethod: 'password',
     homeserverUrl: 'https://matrix.org',
     currentUserId: '@you:matrix.org',
-    darkTheme: false,
+    displayName: 'You (Cinny Android)',
+    darkTheme: true,
+    settings: {
+      themeMode: 'Dark',
+      messageLayout: 'Modern',
+      bubbleOwnRight: true,
+      showRoomAvatars: true,
+      sortRoomsByActivity: true,
+      use24HourClock: true,
+      markdownEnabled: true,
+      developerTools: true,
+    },
     recoveryUnlocked: false,
     pushEnabled: true,
     pushEndpoint: 'https://ntfy.sh/cinny-up-demo-984c',
@@ -402,9 +579,9 @@ export function createInitialCinnyState(): CinnyAppState {
       },
       {
         id: 'tr-init-2',
-        fnName: 'build_space_hierarchy_from_items',
-        argsSummary: 'spaces=2, rooms=5',
-        rustModule: 'spaces.rs',
+        fnName: 'CinnyClient::get_own_profile',
+        argsSummary: 'user_id="@you:matrix.org"',
+        rustModule: 'client.rs',
         timestamp: '19:44:02',
       },
       {
@@ -425,7 +602,7 @@ export function getSpaceUnreadSummary(
   let unread = 0;
   let highlights = 0;
   for (const room of rooms) {
-    if (space.childRoomIds.includes(room.roomId)) {
+    if (space.childRoomIds.includes(room.roomId) && room.category !== 'Invited') {
       unread += room.unreadCount;
       highlights += room.highlightCount;
     }
@@ -436,10 +613,11 @@ export function getSpaceUnreadSummary(
 export function filterRooms(
   rooms: RoomSummary[],
   spaceFilter: 'all' | 'dm' | string,
-  searchQuery: string
+  searchQuery: string,
+  sortByActivity = true
 ): RoomSummary[] {
   const q = searchQuery.trim().toLowerCase();
-  return rooms.filter((room) => {
+  const filtered = rooms.filter((room) => {
     const matchesSpace =
       spaceFilter === 'all'
         ? true
@@ -451,6 +629,14 @@ export function filterRooms(
       room.name.toLowerCase().includes(q) ||
       room.topic.toLowerCase().includes(q);
     return matchesSpace && matchesQuery;
+  });
+
+  return [...filtered].sort((a, b) => {
+    if (sortByActivity) {
+      if (b.highlightCount !== a.highlightCount) return b.highlightCount - a.highlightCount;
+      if (b.lastActivityTsMs !== a.lastActivityTsMs) return b.lastActivityTsMs - a.lastActivityTsMs;
+    }
+    return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
   });
 }
 
@@ -469,6 +655,117 @@ function appendTrace(
     timestamp,
   };
   return [next, ...traces].slice(0, 14);
+}
+
+export function updateCinnySettingsFlow(
+  state: CinnyAppState,
+  patch: Partial<CinnySettingsState>,
+  nowLabel = '19:45'
+): CinnyAppState {
+  const nextSettings = { ...state.settings, ...patch };
+  const isDark = CINNY_THEME_PALETTES[nextSettings.themeMode].isDark;
+  return {
+    ...state,
+    darkTheme: isDark,
+    settings: nextSettings,
+    traces: appendTrace(
+      state.traces,
+      'SecureSessionStore::save_cinny_settings',
+      `theme=${nextSettings.themeMode}, layout=${nextSettings.messageLayout}`,
+      'SecureSessionStore.kt',
+      nowLabel
+    ),
+  };
+}
+
+export function updateOwnDisplayNameFlow(
+  state: CinnyAppState,
+  displayName: string,
+  nowLabel = '19:45'
+): CinnyAppState {
+  const trimmed = displayName.trim();
+  if (!trimmed) return state;
+  return {
+    ...state,
+    displayName: trimmed,
+    traces: appendTrace(
+      state.traces,
+      'CinnyClient::set_display_name',
+      `name="${trimmed}"`,
+      'client.rs',
+      nowLabel
+    ),
+  };
+}
+
+export function updateRoomSettingsFlow(
+  state: CinnyAppState,
+  roomId: string,
+  patch: { name?: string; topic?: string; notificationLevel?: RoomNotificationLevel },
+  nowLabel = '19:45'
+): CinnyAppState {
+  return {
+    ...state,
+    rooms: state.rooms.map((r) =>
+      r.roomId === roomId
+        ? {
+            ...r,
+            name: patch.name?.trim() || r.name,
+            topic: patch.topic !== undefined ? patch.topic : r.topic,
+            notificationLevel: patch.notificationLevel ?? r.notificationLevel,
+          }
+        : r
+    ),
+    traces: appendTrace(
+      state.traces,
+      patch.notificationLevel ? 'CinnyClient::set_room_notification_level' : 'CinnyClient::update_room_name',
+      `room_id="${roomId}"`,
+      'spaces.rs',
+      nowLabel
+    ),
+  };
+}
+
+export function acceptRoomInviteFlow(
+  state: CinnyAppState,
+  roomId: string,
+  nowLabel = '19:45'
+): CinnyAppState {
+  return {
+    ...state,
+    rooms: state.rooms.map((r) =>
+      r.roomId === roomId
+        ? { ...r, category: 'OrphanRoom', unreadCount: 0 }
+        : r
+    ),
+    messagesByRoom: {
+      ...state.messagesByRoom,
+      [roomId]: state.messagesByRoom[roomId] ?? [
+        {
+          eventId: `$evt_acc_${Date.now()}`,
+          roomId,
+          senderId: state.currentUserId,
+          senderName: state.displayName,
+          timestampLabel: nowLabel,
+          timestampMs: Date.now(),
+          body: '已接受邀請並加入聊天室',
+          isEdited: false,
+          isRedacted: false,
+          isEncrypted: true,
+          isOwn: true,
+          threadReplies: [],
+          reactions: [],
+        },
+      ],
+    },
+    traces: appendTrace(
+      state.traces,
+      'CinnyClient::accept_invite',
+      `room_id="${roomId}"`,
+      'spaces.rs',
+      nowLabel
+    ),
+  };
 }
 
 export function completeSsoLoginFlow(
@@ -536,6 +833,8 @@ export function createRoomFlow(
     category: parentSpaceIds.length > 0 ? 'SpaceChannel' : 'OrphanRoom',
     unreadCount: 0,
     highlightCount: 0,
+    lastActivityTsMs: Date.now(),
+    notificationLevel: 'AllMessages',
     parentSpaceIds,
   };
   const updatedSpaces = state.spaces.map((sp) =>
@@ -563,6 +862,37 @@ export function createRoomFlow(
   };
 }
 
+export function createSpaceFlow(
+  state: CinnyAppState,
+  name: string,
+  topic: string,
+  nowLabel = '19:45'
+): CinnyAppState {
+  const trimmed = name.trim();
+  if (!trimmed) return state;
+  const newSpaceId = `!space_${Date.now()}:matrix.org`;
+  const created: SpaceNode = {
+    roomId: newSpaceId,
+    name: trimmed,
+    shortCode: trimmed.slice(0, 2).toUpperCase(),
+    topic: topic.trim() || '新建 Matrix Space',
+    childRoomIds: [],
+  };
+  return {
+    ...state,
+    spaces: [...state.spaces, created],
+    selectedSpaceFilter: newSpaceId,
+    activeRoomId: null,
+    traces: appendTrace(
+      state.traces,
+      'CinnyClient::create_space',
+      `name="${trimmed}"`,
+      'spaces.rs',
+      nowLabel
+    ),
+  };
+}
+
 export function joinDiscoverableSpaceRoom(
   state: CinnyAppState,
   roomId: string,
@@ -580,6 +910,8 @@ export function joinDiscoverableSpaceRoom(
     category: 'SpaceChannel',
     unreadCount: 0,
     highlightCount: 0,
+    lastActivityTsMs: Date.now(),
+    notificationLevel: 'AllMessages',
     parentSpaceIds: [target.spaceId],
   };
 
@@ -604,7 +936,7 @@ export function joinDiscoverableSpaceRoom(
           senderName: 'Space Directory',
           timestampLabel: nowLabel,
           timestampMs: Date.now(),
-          body: `已加入 #${target.name}（${target.memberCount} 位成員）`,
+          body: `已加入 ${target.canonicalAlias ?? target.name}（${target.memberCount} 位成員）`,
           isEdited: false,
           isRedacted: false,
           isEncrypted: target.isEncrypted,
@@ -673,6 +1005,34 @@ export function sendMarkdownMessage(
       state.traces,
       'send_markdown_message',
       `room_id="${roomId}", reply=${replyToEventId ? 'Some' : 'None'}`,
+      'timeline.rs',
+      nowLabel
+    ),
+  };
+}
+
+export function editMarkdownMessageFlow(
+  state: CinnyAppState,
+  roomId: string,
+  eventId: string,
+  newBody: string,
+  nowLabel = '19:45'
+): CinnyAppState {
+  const trimmed = newBody.trim();
+  if (!trimmed) return state;
+  const existing = state.messagesByRoom[roomId] ?? [];
+  return {
+    ...state,
+    messagesByRoom: {
+      ...state.messagesByRoom,
+      [roomId]: existing.map((m) =>
+        m.eventId === eventId ? { ...m, body: trimmed, isEdited: true } : m
+      ),
+    },
+    traces: appendTrace(
+      state.traces,
+      'edit_markdown_message',
+      `event_id="${eventId}"`,
       'timeline.rs',
       nowLabel
     ),
@@ -977,7 +1337,7 @@ export function simulateIncomingSyncMessage(
 
   const rooms = state.rooms.map((r) =>
     r.roomId === roomId && state.activeRoomId !== roomId
-      ? { ...r, unreadCount: r.unreadCount + 1 }
+      ? { ...r, unreadCount: r.unreadCount + 1, lastActivityTsMs: Date.now() }
       : r
   );
 
